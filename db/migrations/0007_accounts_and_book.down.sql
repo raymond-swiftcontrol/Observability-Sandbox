@@ -1,0 +1,11 @@
+DROP TABLE IF EXISTS book.reconciliation_break, book.reconciliation_run CASCADE;
+DROP TABLE IF EXISTS book.equity_snapshot CASCADE;
+DROP TABLE IF EXISTS book.transfer CASCADE;
+DROP TYPE IF EXISTS book.transfer_status, book.transfer_direction;
+DROP TABLE IF EXISTS book.position_lot, book.position, book.cash_balance CASCADE;
+DROP TRIGGER IF EXISTS trg_ledger_balanced ON book.ledger_entry;
+DROP FUNCTION IF EXISTS book.assert_ledger_balanced();
+DROP TABLE IF EXISTS book.ledger_entry, book.ledger_transaction CASCADE;
+DROP TYPE IF EXISTS book.entry_reason, book.ledger_account;
+DROP TABLE IF EXISTS book.portfolio, book.broker_connection, book.account CASCADE;
+DROP TYPE IF EXISTS book.broker, book.account_status, book.account_type;

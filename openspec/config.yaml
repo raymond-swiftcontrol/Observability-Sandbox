@@ -1,0 +1,80 @@
+schema: spec-driven
+
+context: |
+  PROJECT — Helios: a quant trading + social investing platform.
+  Repo: raymond-swiftcontrol/Observability-Sandbox. Working branch: claude/zealous-hawking-udmaia.
+
+  Product surface
+    • Mobile-first (React Native + Expo) client for systematic and discretionary traders.
+    • Quant research: feature store, vectorised + event-driven backtesters, portfolio
+      optimisers, regime detection, walk-forward validation.
+    • Live + paper trading: OMS/EMS, smart order router, execution algos, pre-trade risk gate.
+    • Brokerage connectivity: users link major brokerages (or import/enter portfolios
+      manually) and Helios syncs holdings, transactions and cost basis.
+    • Social layer (Blossom-style): profiles, follows, a ranked feed, verified trade and
+      portfolio sharing, comments, reactions, leaderboards, groups, DMs, moderation.
+    • Self-hostable: the whole stack must come up locally with one command, seeded with
+      synthetic market data and no vendor API keys required.
+
+  Tech stack
+    • Monorepo: pnpm workspaces + turborepo. TypeScript 5.7, Node 22.
+    • apps/api-gateway      NestJS BFF — GraphQL + REST + WS subscriptions
+    • apps/market-data-ingestor, apps/execution-gateway   Go 1.24, gRPC
+    • apps/quant-engine, apps/risk-engine                 Python 3.11, FastAPI, Celery
+    • apps/notification-worker  TypeScript, BullMQ
+    • apps/social-service       social graph, feed ranking, moderation
+    • apps/web-console          Next.js desk ops/admin
+    • apps/mobile               Expo, expo-router, Skia charts, TanStack Query, Zustand
+    • packages/{shared-types,quant-core,ui-kit,sdk,observability}
+    • Data: PostgreSQL 16 + TimescaleDB (OLTP + time series), ClickHouse (tick/analytics),
+      Redis (cache/pubsub/queues), Redpanda/Kafka (event backbone), S3/MinIO (artifacts).
+    • Infra: Terraform on AWS (VPC, EKS, Aurora, MSK, ElastiCache, S3, IRSA), Helm, GitHub Actions.
+    • Observability: OpenTelemetry everywhere → Tempo/Prometheus/Loki/Grafana. The repo
+      doubles as an observability sandbox, so new services MUST emit traces, metrics, logs.
+
+  Conventions that reviews enforce
+    • Money and prices are exact decimals (reference.money / reference.price domains),
+      never floats. The cash ledger is double-entry and must balance per transaction.
+    • Market data is stored raw; adjusted prices are derived on read via
+      reference.adjustment_factor. Research queries filter on as_of/published_at, never on
+      period_end — point-in-time correctness is a hard requirement, lookahead is a bug.
+    • SQL migrations in db/migrations are forward-only and immutable once applied
+      (checksummed). Add a new migration rather than editing one.
+    • Order state changes go through oms.apply_order_event; the state machine lives in
+      oms.is_valid_transition.
+    • Row-level security is the second line of defence behind gateway authorisation;
+      every user-scoped table carries a tenancy policy.
+    • Conventional commits. Every service has a Dockerfile, a health endpoint, and a
+      Helm chart entry.
+    • Nothing that touches real capital ships behind a default-on flag: live trading is
+      gated by FEATURE_LIVE_TRADING.
+
+  Non-negotiables for planning
+    • Financial correctness and auditability beat feature velocity.
+    • Social features must not leak position sizes, account values or PII by default;
+      sharing is opt-in and returns are shared as percentages unless the user opts to
+      reveal notionals.
+    • Every change must keep `make stack-up && make db-migrate && make db-seed && make test`
+      working on a clean machine.
+
+rules:
+  proposal:
+    - State the trader-facing or operator-facing outcome in the first paragraph.
+    - Always include a "Non-goals" section.
+    - Call out any impact on financial correctness, point-in-time integrity, or user privacy.
+  design:
+    - Name the services, schemas and Kafka topics touched.
+    - Include the failure modes and what happens on partial failure.
+    - Note the observability signals (spans, metrics, log events) the change must emit.
+  tasks:
+    - Chunks of at most a few hours, each independently verifiable.
+    - Include a migration task whenever the schema changes, and a test task always.
+
+operations:
+  apply:
+    guidance:
+      - Run the relevant unit tests and `openspec validate` before marking tasks complete.
+      - Prefer adding a regression test that would have caught the bug you are fixing.
+  archive:
+    guidance:
+      - Summarise what shipped, what was deferred, and any follow-up change proposed.

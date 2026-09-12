@@ -1,0 +1,11 @@
+DROP TABLE IF EXISTS market.data_gap CASCADE;
+DROP TABLE IF EXISTS market.feed_health CASCADE;
+DROP TABLE IF EXISTS market.option_quote CASCADE;
+DROP TABLE IF EXISTS market.book_snapshot CASCADE;
+DROP MATERIALIZED VIEW IF EXISTS market.bar_1w, market.bar_1h, market.bar_15m, market.bar_5m CASCADE;
+DROP TRIGGER IF EXISTS trg_bar_1d_derive ON market.bar_1d;
+DROP FUNCTION IF EXISTS market.bar_1d_derive();
+DROP TABLE IF EXISTS market.bar_1d CASCADE;
+DROP TABLE IF EXISTS market.bar_1m CASCADE;
+DROP TABLE IF EXISTS market.quote CASCADE;
+DROP TABLE IF EXISTS market.trade CASCADE;
