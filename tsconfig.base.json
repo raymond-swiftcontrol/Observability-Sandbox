@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "compilerOptions": {
+    "target": "ES2023",
+    "lib": ["ES2023"],
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "noImplicitOverride": true,
+    "noFallthroughCasesInSwitch": true,
+    "exactOptionalPropertyTypes": false,
+    "forceConsistentCasingInFileNames": true,
+    "skipLibCheck": true,
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "composite": true,
+    "incremental": true,
+    "resolveJsonModule": true,
+    "esModuleInterop": true,
+    "emitDecoratorMetadata": true,
+    "experimentalDecorators": true,
+    "paths": {
+      "@helios/shared-types": ["./packages/shared-types/src/index.ts"],
+      "@helios/quant-core": ["./packages/quant-core/src/index.ts"],
+      "@helios/ui-kit": ["./packages/ui-kit/src/index.ts"],
+      "@helios/sdk": ["./packages/sdk/src/index.ts"],
+      "@helios/observability": ["./packages/observability/src/index.ts"]
+    }
+  },
+  "exclude": ["node_modules", "dist", "build", ".next"]
+}

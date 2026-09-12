@@ -1,0 +1,52 @@
+{
+  "name": "helios",
+  "version": "0.14.0",
+  "private": true,
+  "description": "Helios — a quantitative trading platform for systematic retail and prop traders",
+  "license": "UNLICENSED",
+  "packageManager": "pnpm@10.33.0",
+  "engines": {
+    "node": ">=22.0.0",
+    "pnpm": ">=10.0.0"
+  },
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "build": "turbo run build",
+    "dev": "turbo run dev --parallel",
+    "lint": "turbo run lint",
+    "typecheck": "turbo run typecheck",
+    "test": "turbo run test",
+    "test:e2e": "turbo run test:e2e",
+    "clean": "turbo run clean && rm -rf node_modules",
+    "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md,yaml,yml}\"",
+    "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,json,md,yaml,yml}\"",
+    "db:migrate": "./scripts/db-migrate.sh up",
+    "db:rollback": "./scripts/db-migrate.sh down",
+    "db:seed": "./scripts/db-seed.sh",
+    "stack:up": "docker compose -f docker-compose.yml -f docker-compose.observability.yml up -d",
+    "stack:down": "docker compose -f docker-compose.yml -f docker-compose.observability.yml down -v",
+    "codegen": "turbo run codegen",
+    "graph": "turbo run build --graph=docs/diagrams/turbo-graph.svg"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "@typescript-eslint/eslint-plugin": "^8.18.0",
+    "@typescript-eslint/parser": "^8.18.0",
+    "eslint": "^9.17.0",
+    "eslint-config-prettier": "^9.1.0",
+    "prettier": "^3.4.2",
+    "turbo": "^2.3.3",
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8"
+  },
+  "pnpm": {
+    "peerDependencyRules": {
+      "allowedVersions": {
+        "react": "19"
+      }
+    }
+  }
+}

@@ -1,0 +1,9 @@
+gateway:      pnpm --filter @helios/api-gateway dev
+quant:        cd apps/quant-engine && .venv/bin/uvicorn helios_quant.main:app --reload --port 8100
+quantworker:  cd apps/quant-engine && .venv/bin/celery -A helios_quant.worker.app worker -Q backtest,sweep -c 4 --loglevel=info
+risk:         cd apps/risk-engine && .venv/bin/uvicorn helios_risk.main:app --reload --port 8200
+marketdata:   cd apps/market-data-ingestor && air -c .air.toml
+execution:    cd apps/execution-gateway && air -c .air.toml
+notification: pnpm --filter @helios/notification-worker dev
+console:      pnpm --filter @helios/web-console dev
+mobile:       pnpm --filter @helios/mobile start

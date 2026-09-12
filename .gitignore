@@ -1,0 +1,66 @@
+# dependencies
+node_modules/
+.pnpm-store/
+vendor/
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.eggs/
+*.egg-info/
+
+# builds
+dist/
+build/
+out/
+.next/
+.expo/
+.expo-shared/
+*.tsbuildinfo
+.turbo/
+target/
+bin/helios-*
+
+# env & secrets
+.env
+.env.local
+.env.*.local
+*.pem
+*.p8
+*.keystore
+google-services.json
+GoogleService-Info.plist
+
+# terraform
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+.terraform.lock.hcl
+!infra/terraform/.terraform.lock.hcl
+crash.log
+
+# test / coverage
+coverage/
+.nyc_output/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+htmlcov/
+test-results/
+playwright-report/
+
+# editors & os
+.idea/
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
+.DS_Store
+Thumbs.db
+
+# data / local artifacts
+tmp/
+*.log
+data/parquet/
+data/duckdb/
+notebooks/.ipynb_checkpoints/

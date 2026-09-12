@@ -1,0 +1,82 @@
+# Run the application services in containers too (CI / integration testing).
+# Usage: docker compose -f docker-compose.yml -f docker-compose.apps.yml up -d
+name: helios
+
+x-service-env: &svc-env
+  HELIOS_ENV: docker
+  DATABASE_URL: postgresql://helios:helios_dev_only@postgres:5432/helios?sslmode=disable
+  REDIS_URL: redis://redis:6379/0
+  KAFKA_BROKERS: redpanda:9092
+  CLICKHOUSE_URL: http://clickhouse:8123
+  S3_ENDPOINT: http://minio:9000
+  OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+
+x-depends: &svc-depends
+  postgres: { condition: service_healthy }
+  redis: { condition: service_healthy }
+  redpanda: { condition: service_healthy }
+
+services:
+  api-gateway:
+    build: { context: ., dockerfile: apps/api-gateway/Dockerfile }
+    environment:
+      <<: *svc-env
+      QUANT_ENGINE_URL: http://quant-engine:8100
+      RISK_ENGINE_URL: http://risk-engine:8200
+      EXECUTION_GATEWAY_GRPC: execution-gateway:9300
+      MARKET_DATA_GRPC: market-data-ingestor:9400
+    ports: ['4000:4000']
+    depends_on: *svc-depends
+
+  market-data-ingestor:
+    build: { context: ., dockerfile: apps/market-data-ingestor/Dockerfile }
+    environment:
+      <<: *svc-env
+      MARKET_DATA_MODE: synthetic
+      VENDOR_SIM_URL: ws://vendor-sim:7070/stream
+    ports: ['9400:9400', '9465:9464']
+    depends_on: *svc-depends
+
+  quant-engine:
+    build: { context: ., dockerfile: apps/quant-engine/Dockerfile }
+    environment: *svc-env
+    ports: ['8100:8100']
+    depends_on: *svc-depends
+
+  quant-worker:
+    build: { context: ., dockerfile: apps/quant-engine/Dockerfile }
+    command: ['celery', '-A', 'helios_quant.worker.app', 'worker', '-Q', 'backtest,sweep', '-c', '4']
+    environment: *svc-env
+    deploy: { replicas: 2 }
+    depends_on: *svc-depends
+
+  risk-engine:
+    build: { context: ., dockerfile: apps/risk-engine/Dockerfile }
+    environment: *svc-env
+    ports: ['8200:8200']
+    depends_on: *svc-depends
+
+  execution-gateway:
+    build: { context: ., dockerfile: apps/execution-gateway/Dockerfile }
+    environment:
+      <<: *svc-env
+      BROKER_MODE: paper
+      RISK_ENGINE_URL: http://risk-engine:8200
+    ports: ['9300:9300']
+    depends_on: *svc-depends
+
+  notification-worker:
+    build: { context: ., dockerfile: apps/notification-worker/Dockerfile }
+    environment:
+      <<: *svc-env
+      SMTP_HOST: mailpit
+      SMTP_PORT: '1025'
+    depends_on: *svc-depends
+
+  web-console:
+    build: { context: ., dockerfile: apps/web-console/Dockerfile }
+    environment:
+      <<: *svc-env
+      NEXT_PUBLIC_API_URL: http://localhost:4000
+    ports: ['3000:3000']
+    depends_on: [api-gateway]

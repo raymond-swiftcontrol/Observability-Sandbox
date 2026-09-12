@@ -1,0 +1,8 @@
+pnpm-lock.yaml
+dist
+.next
+.expo
+coverage
+db/migrations
+infra/terraform/.terraform
+**/__generated__
