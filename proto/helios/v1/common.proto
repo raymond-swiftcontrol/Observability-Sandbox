@@ -1,0 +1,135 @@
+// Shared vocabulary for every Helios RPC surface.
+//
+// Two conventions here are load-bearing and deliberate:
+//
+//  1. Money, prices and quantities cross the wire as `Decimal` — a string.
+//     The database stores numeric(28,12)/numeric(38,18); double has 53 bits of
+//     mantissa and cannot round-trip those. A string is the only encoding that
+//     survives Go/Python/TypeScript/Postgres without a silent rounding step,
+//     and it keeps "0.1" equal to "0.1" across languages.
+//  2. Instruments are referenced by uuid, never by symbol. Tickers are recycled
+//     after delisting (see reference.instrument), so a symbol-keyed RPC is a
+//     correctness bug waiting for the next ticker reuse.
+syntax = "proto3";
+
+package helios.v1;
+
+option go_package = "github.com/raymond-swiftcontrol/helios/proto/gen/go/helios/v1;heliosv1";
+
+// Exact decimal. `value` is the canonical textual form ("123.45", "-0.000001",
+// "" meaning absent/NULL). Consumers parse into their own arbitrary-precision
+// type; producers must never render via a float.
+message Decimal {
+  string value = 1;
+}
+
+// Nanosecond epoch time. google.protobuf.Timestamp splits seconds/nanos which
+// forces a two-field conversion on every hot-path tick; market data is already
+// nanosecond-native from the venue, so a single int64 is both cheaper and
+// lossless up to year 2262 — comfortably past any retention window we keep.
+message Timestamp {
+  int64 epoch_nanos = 1;
+}
+
+// Stable instrument identity. `instrument_id` is authoritative; `symbol` and
+// `venue_id` are carried for human display and logging only.
+message InstrumentRef {
+  string instrument_id = 1;  // uuid, reference.instrument.id
+  string symbol = 2;
+  int32 venue_id = 3;
+}
+
+// Keyset pagination. Offsets over time-series tables drift as rows arrive, so
+// every list RPC is cursor-based; the cursor is an opaque server-encoded
+// position and clients must not parse it.
+message PageRequest {
+  int32 limit = 1;
+  string cursor = 2;
+}
+
+message PageResponse {
+  string next_cursor = 1;
+  bool has_more = 2;
+  int64 total_estimate = 3;  // best-effort; -1 when unknown
+}
+
+// Structured failure detail. Carried inside responses (not only as a gRPC
+// status) because a partially successful batch needs per-item errors, and
+// because `retryable` is a decision the server is better placed to make than
+// the client's status-code mapping.
+message Error {
+  string code = 1;
+  string message = 2;
+  bool retryable = 3;
+  map<string, string> details = 4;
+}
+
+enum Side {
+  SIDE_UNSPECIFIED = 0;
+  SIDE_BUY = 1;
+  SIDE_SELL = 2;
+}
+
+enum PositionSide {
+  POSITION_SIDE_UNSPECIFIED = 0;
+  POSITION_SIDE_LONG = 1;
+  POSITION_SIDE_SHORT = 2;
+  POSITION_SIDE_FLAT = 3;
+}
+
+// Mirrors reference.bar_interval.
+enum BarInterval {
+  BAR_INTERVAL_UNSPECIFIED = 0;
+  BAR_INTERVAL_1S = 1;
+  BAR_INTERVAL_5S = 2;
+  BAR_INTERVAL_15S = 3;
+  BAR_INTERVAL_1M = 4;
+  BAR_INTERVAL_5M = 5;
+  BAR_INTERVAL_15M = 6;
+  BAR_INTERVAL_30M = 7;
+  BAR_INTERVAL_1H = 8;
+  BAR_INTERVAL_4H = 9;
+  BAR_INTERVAL_1D = 10;
+  BAR_INTERVAL_1W = 11;
+  BAR_INTERVAL_1MO = 12;
+}
+
+// Mirrors reference.asset_class.
+enum AssetClass {
+  ASSET_CLASS_UNSPECIFIED = 0;
+  ASSET_CLASS_EQUITY = 1;
+  ASSET_CLASS_ETF = 2;
+  ASSET_CLASS_ADR = 3;
+  ASSET_CLASS_FUND = 4;
+  ASSET_CLASS_OPTION = 5;
+  ASSET_CLASS_FUTURE = 6;
+  ASSET_CLASS_FUTURE_OPTION = 7;
+  ASSET_CLASS_FOREX = 8;
+  ASSET_CLASS_CRYPTO = 9;
+  ASSET_CLASS_CRYPTO_PERP = 10;
+  ASSET_CLASS_INDEX = 11;
+  ASSET_CLASS_BOND = 12;
+  ASSET_CLASS_COMMODITY = 13;
+  ASSET_CLASS_WARRANT = 14;
+  ASSET_CLASS_CFD = 15;
+}
+
+// Trading session a bar or print belongs to. Extended-hours data is kept but
+// flagged; most strategies must exclude it.
+enum TradingSession {
+  TRADING_SESSION_UNSPECIFIED = 0;
+  TRADING_SESSION_PRE = 1;
+  TRADING_SESSION_REGULAR = 2;
+  TRADING_SESSION_POST = 3;
+  TRADING_SESSION_CLOSED = 4;
+}
+
+// Mirrors reference.data_quality.
+enum DataQuality {
+  DATA_QUALITY_UNSPECIFIED = 0;
+  DATA_QUALITY_VERIFIED = 1;
+  DATA_QUALITY_VENDOR = 2;
+  DATA_QUALITY_DERIVED = 3;
+  DATA_QUALITY_ESTIMATED = 4;
+  DATA_QUALITY_SUSPECT = 5;
+}

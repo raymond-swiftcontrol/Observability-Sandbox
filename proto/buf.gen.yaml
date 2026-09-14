@@ -1,0 +1,19 @@
+# Generated Go lands in proto/gen/go, which is its own module. Each Go service
+# pulls it in with a replace directive rather than vendoring a copy, so there is
+# exactly one definition of the wire types in the repo.
+version: v2
+managed:
+  enabled: true
+  override:
+    - file_option: go_package_prefix
+      value: github.com/raymond-swiftcontrol/helios/proto/gen/go
+plugins:
+  - local: protoc-gen-go
+    out: gen/go
+    opt:
+      - paths=source_relative
+  - local: protoc-gen-go-grpc
+    out: gen/go
+    opt:
+      - paths=source_relative
+      - require_unimplemented_servers=false

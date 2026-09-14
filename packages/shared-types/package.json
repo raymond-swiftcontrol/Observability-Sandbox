@@ -1,0 +1,40 @@
+{
+  "name": "@helios/shared-types",
+  "version": "0.14.0",
+  "private": true,
+  "description": "Zod-first domain contracts shared by every Helios TypeScript service",
+  "license": "UNLICENSED",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./disclosure": {
+      "types": "./dist/disclosure.d.ts",
+      "import": "./dist/disclosure.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -b",
+    "clean": "rm -rf dist tsconfig.tsbuildinfo",
+    "lint": "eslint src",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc -b && tsc -p tsconfig.test.json"
+  },
+  "dependencies": {
+    "decimal.js-light": "^2.5.1",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "typescript": "catalog:",
+    "vitest": "^2.1.8"
+  }
+}

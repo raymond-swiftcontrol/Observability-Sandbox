@@ -1,0 +1,89 @@
+// Pre-trade risk gate contract, served by apps/risk-engine.
+//
+// The execution gateway calls this over HTTP (RISK_ENGINE_URL) rather than
+// gRPC: the risk engine is Python/FastAPI and its JSON surface is the one the
+// api-gateway and the mobile order ticket already consume, so a second
+// transport would mean two code paths that can disagree about a rejection.
+// This file is the schema of record for both — the JSON field names are the
+// proto field names, so the two encodings stay in lockstep.
+syntax = "proto3";
+
+package helios.v1;
+
+import "helios/v1/common.proto";
+
+option go_package = "github.com/raymond-swiftcontrol/helios/proto/gen/go/helios/v1;heliosv1";
+
+service RiskService {
+  rpc CheckPreTrade(PreTradeCheckRequest) returns (PreTradeCheckResponse);
+  rpc GetAccountRisk(GetAccountRiskRequest) returns (GetAccountRiskResponse);
+}
+
+message PreTradeCheckRequest {
+  string request_id = 1;  // idempotency + trace correlation
+  string account_id = 2;
+  string portfolio_id = 3;
+  string instrument_id = 4;
+  Side side = 5;
+  Decimal quantity = 6;
+  Decimal limit_price = 7;
+  // Mid at decision time; the engine needs a mark to size the notional when the
+  // order is a market order with no limit.
+  Decimal reference_price = 8;
+  string order_type = 9;
+  string time_in_force = 10;
+  bool extended_hours = 11;
+  string algo = 12;
+  // Live accounts fail closed on a gate error; paper accounts may fail open.
+  // The engine echoes this back so the decision is auditable from one record.
+  bool is_paper = 13;
+}
+
+// A single limit evaluation. Returned for every limit checked, not only the
+// breached ones, because "which limits did we have room against" is the
+// question post-incident review actually asks.
+message RiskCheck {
+  string limit_code = 1;
+  string scope = 2;  // account | portfolio | instrument | desk
+  bool passed = 3;
+  Decimal current_value = 4;
+  Decimal limit_value = 5;
+  Decimal post_trade_value = 6;
+  Decimal utilisation = 7;  // post_trade_value / limit_value
+  string message = 8;
+}
+
+message PreTradeCheckResponse {
+  string assessment_id = 1;
+  bool approved = 2;
+  // Populated on rejection; maps onto oms.rejection.code.
+  string reject_code = 3;
+  string reject_message = 4;
+  repeated RiskCheck checks = 5;
+  // Largest quantity that would have passed, so the client can offer a
+  // downsized order instead of a bare rejection.
+  Decimal max_allowed_quantity = 6;
+  Decimal estimated_buying_power_after = 7;
+  Decimal estimated_margin_requirement = 8;
+  Decimal portfolio_var_after = 9;
+  bool kill_switch_active = 10;
+  Timestamp evaluated_at = 11;
+}
+
+message GetAccountRiskRequest {
+  string account_id = 1;
+}
+
+message GetAccountRiskResponse {
+  string account_id = 1;
+  Decimal equity = 2;
+  Decimal buying_power = 3;
+  Decimal gross_exposure = 4;
+  Decimal net_exposure = 5;
+  Decimal leverage = 6;
+  Decimal maintenance_margin = 7;
+  Decimal var_95_1d = 8;
+  Decimal expected_shortfall_95 = 9;
+  bool kill_switch_active = 10;
+  repeated RiskCheck limits = 11;
+}

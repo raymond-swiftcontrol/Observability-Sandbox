@@ -1,0 +1,30 @@
+# ── Helios risk-engine runtime dependencies ─────────────────────────────────
+# Pinned to minimum-compatible majors. Everything numerical here is numpy +
+# scipy: the risk engine sits on the order path and does not want a frame
+# library's import cost or memory footprint.
+fastapi>=0.115,<1.0
+uvicorn[standard]>=0.30,<1.0
+pydantic>=2.8,<3.0
+pydantic-settings>=2.4,<3.0
+orjson>=3.10,<4.0
+
+# ── Database: SQLAlchemy Core (no ORM — these are analytical queries) ────────
+SQLAlchemy>=2.0.30,<2.1
+asyncpg>=0.29,<0.31
+greenlet>=3.0
+
+# ── Numerics ────────────────────────────────────────────────────────────────
+numpy>=1.26,<3.0
+scipy>=1.13,<2.0
+
+# ── Cache (warm limit cache on the pre-trade path) ──────────────────────────
+redis>=5.0,<7.0
+
+# ── Observability ───────────────────────────────────────────────────────────
+structlog>=24.1
+prometheus-client>=0.20
+opentelemetry-api>=1.25
+opentelemetry-sdk>=1.25
+opentelemetry-exporter-otlp-proto-grpc>=1.25
+opentelemetry-instrumentation-fastapi>=0.46b0
+opentelemetry-instrumentation-asyncpg>=0.46b0

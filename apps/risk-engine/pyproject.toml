@@ -1,0 +1,67 @@
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "helios-risk-engine"
+version = "0.1.0"
+description = "Helios risk engine — VaR, greeks, exposure, stress, pre-trade limits"
+requires-python = ">=3.11"
+dynamic = ["dependencies"]
+
+[tool.setuptools.dynamic]
+dependencies = { file = ["requirements.txt"] }
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = [
+  "E", "W",   # pycodestyle
+  "F",        # pyflakes
+  "I",        # isort
+  "UP",       # pyupgrade
+  "B",        # bugbear
+  "C4",       # comprehensions
+  "SIM",      # simplify
+  "RUF",
+  "ANN",      # annotations — the point of mypy --strict is undermined without these
+  "N",        # pep8-naming
+ignore = [
+  # Single-letter maths names are the clearest spelling for matrix algebra: a
+  # covariance matrix is Sigma, a design matrix is X. Renaming them to
+  # `covariance_matrix` makes the formulas harder to check against a paper.
+  "N803", "N806",
+  "B008",   # FastAPI Depends() in defaults is the framework's idiom
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["ANN"]
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+mypy_path = "src"
+packages = ["helios_risk"]
+plugins = []
+warn_unreachable = true
+# numpy's stubs legitimately return Any from several ufunc/reduction overloads
+# (np.ndarray.sum, comparison chains on structured dtypes). Raising an error on
+# those would push every numeric function through a cast(), which hides real
+# type errors rather than exposing them. Annotations on signatures stay strict.
+warn_return_any = false
+
+[[tool.mypy.overrides]]
+module = ["prometheus_client.*", "redis.*"]
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+filterwarnings = ["error::DeprecationWarning:helios_risk.*"]
+addopts = "--strict-markers"
+markers = ["latency: asserts a wall-clock budget; noisy on a loaded CI box"]

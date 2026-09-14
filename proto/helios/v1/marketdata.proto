@@ -1,0 +1,222 @@
+// Market data read surface, served by apps/market-data-ingestor.
+//
+// Bars are returned RAW as printed by the venue. Adjustment for corporate
+// actions is an explicit request flag rather than the default, because an
+// adjusted series is not comparable to the order tape and silently adjusting
+// is how backtests end up trading prices that never existed.
+syntax = "proto3";
+
+package helios.v1;
+
+import "helios/v1/common.proto";
+
+option go_package = "github.com/raymond-swiftcontrol/helios/proto/gen/go/helios/v1;heliosv1";
+
+service MarketDataService {
+  rpc GetBars(GetBarsRequest) returns (GetBarsResponse);
+  rpc GetLatestQuote(GetLatestQuoteRequest) returns (GetLatestQuoteResponse);
+  // Server-streaming top of book. The server fans out from the in-process
+  // normalised stream, so a subscriber adds no vendor-side load.
+  rpc StreamQuotes(StreamQuotesRequest) returns (stream Quote);
+  rpc SearchInstruments(SearchInstrumentsRequest) returns (SearchInstrumentsResponse);
+  rpc GetOptionChain(GetOptionChainRequest) returns (GetOptionChainResponse);
+}
+
+message Bar {
+  Timestamp ts = 1;  // bar OPEN time
+  string instrument_id = 2;
+  Decimal open = 3;
+  Decimal high = 4;
+  Decimal low = 5;
+  Decimal close = 6;
+  Decimal volume = 7;
+  int32 trade_count = 8;
+  Decimal vwap = 9;
+  TradingSession session = 10;
+  BarInterval interval = 11;
+  DataQuality quality = 12;
+  string source = 13;
+  // True when the bucket has closed and no further ticks will be folded in.
+  // Streaming consumers must not persist a bar with final=false.
+  bool final = 14;
+}
+
+message Quote {
+  Timestamp ts = 1;
+  string instrument_id = 2;
+  Decimal bid_price = 3;
+  Decimal bid_size = 4;
+  Decimal ask_price = 5;
+  Decimal ask_size = 6;
+  int32 bid_venue_id = 7;
+  int32 ask_venue_id = 8;
+  Decimal spread = 9;
+  Decimal mid = 10;
+  Timestamp exchange_ts = 11;
+  string vendor = 12;
+}
+
+message Trade {
+  Timestamp ts = 1;
+  string instrument_id = 2;
+  Decimal price = 3;
+  Decimal size = 4;
+  string trade_id = 5;
+  int32 venue_id = 6;
+  Side aggressor = 7;
+  repeated string conditions = 8;
+  Timestamp exchange_ts = 9;
+  string vendor = 10;
+}
+
+message BookLevel {
+  Decimal price = 1;
+  Decimal size = 2;
+  int32 order_count = 3;
+}
+
+message BookSnapshot {
+  Timestamp ts = 1;
+  string instrument_id = 2;
+  int64 sequence = 3;
+  repeated BookLevel bids = 4;  // descending price
+  repeated BookLevel asks = 5;  // ascending price
+  int32 depth_levels = 6;
+  Decimal imbalance_l1 = 7;
+  Decimal imbalance_l5 = 8;
+}
+
+message GetBarsRequest {
+  string instrument_id = 1;
+  BarInterval interval = 2;
+  Timestamp from = 3;
+  Timestamp to = 4;
+  // Back-adjust using reference.adjustment_factor. Off by default.
+  bool adjusted = 5;
+  // Include pre/post-market bars. Off by default.
+  bool include_extended_hours = 6;
+  PageRequest page = 7;
+}
+
+message GetBarsResponse {
+  repeated Bar bars = 1;
+  PageResponse page = 2;
+  // Windows we know are incomplete (market.data_gap). Returned so research can
+  // exclude them rather than train on holes it cannot see.
+  repeated DataGap gaps = 3;
+}
+
+message DataGap {
+  Timestamp gap_start = 1;
+  Timestamp gap_end = 2;
+  string feed = 3;
+  int32 expected_rows = 4;
+  int32 actual_rows = 5;
+  bool backfilled = 6;
+}
+
+message GetLatestQuoteRequest {
+  repeated string instrument_ids = 1;
+  // Serve from the in-memory last-quote cache instead of Postgres. Default is
+  // cache-first with a DB fallback.
+  bool cache_only = 2;
+}
+
+message GetLatestQuoteResponse {
+  repeated Quote quotes = 1;
+  // Instruments with no quote in the cache or the retention window.
+  repeated string missing_instrument_ids = 2;
+}
+
+message StreamQuotesRequest {
+  repeated string instrument_ids = 1;
+  // Coalesce to at most one update per instrument per interval. 0 = every tick.
+  // A mobile client on a cellular link wants ~200ms; a co-located strategy 0.
+  int32 throttle_ms = 2;
+  bool include_trades = 3;
+}
+
+message SearchInstrumentsRequest {
+  string query = 1;
+  repeated AssetClass asset_classes = 2;
+  repeated int32 venue_ids = 3;
+  bool active_only = 4;
+  PageRequest page = 5;
+}
+
+message Instrument {
+  string instrument_id = 1;
+  string public_id = 2;
+  string symbol = 3;
+  string name = 4;
+  int32 venue_id = 5;
+  string venue_code = 6;
+  AssetClass asset_class = 7;
+  string currency = 8;
+  string status = 9;
+  string figi = 10;
+  string isin = 11;
+  Decimal tick_size = 12;
+  Decimal lot_size = 13;
+  Decimal multiplier = 14;
+  bool is_shortable = 15;
+  bool is_fractionable = 16;
+  Decimal adv_30d = 17;
+  Decimal median_spread_bps = 18;
+  // Trigram similarity from the search index; 1.0 for an exact symbol hit.
+  double match_score = 19;
+}
+
+message SearchInstrumentsResponse {
+  repeated Instrument instruments = 1;
+  PageResponse page = 2;
+}
+
+message GetOptionChainRequest {
+  string underlying_id = 1;
+  // Empty = all listed expirations within the horizon.
+  repeated string expiration_dates = 2;  // ISO-8601 dates
+  Decimal min_strike = 3;
+  Decimal max_strike = 4;
+  // Only strikes within this fraction of spot. 0 = no filter.
+  Decimal moneyness_window = 5;
+  bool include_greeks = 6;
+  bool include_quotes = 7;
+}
+
+message OptionContract {
+  string instrument_id = 1;
+  string occ_symbol = 2;
+  string underlying_id = 3;
+  string option_type = 4;  // call | put
+  Decimal strike = 5;
+  string expiration_date = 6;
+  string exercise_style = 7;
+  Decimal contract_size = 8;
+  int64 open_interest = 9;
+  bool is_weekly = 10;
+  OptionQuote quote = 11;
+}
+
+message OptionQuote {
+  Timestamp ts = 1;
+  Decimal bid = 2;
+  Decimal ask = 3;
+  Decimal last = 4;
+  Decimal volume = 5;
+  Decimal underlying_price = 6;
+  Decimal implied_vol = 7;
+  string iv_source = 8;
+  Decimal delta = 9;
+  Decimal gamma = 10;
+  Decimal theta = 11;
+  Decimal vega = 12;
+  Decimal rho = 13;
+}
+
+message GetOptionChainResponse {
+  string underlying_id = 1;
+  Decimal underlying_price = 2;
+  repeated OptionContract contracts = 3;
+  repeated string expiration_dates = 4;
+}

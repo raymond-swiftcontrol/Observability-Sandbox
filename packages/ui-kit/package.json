@@ -1,0 +1,47 @@
+{
+  "name": "@helios/ui-kit",
+  "version": "0.14.0",
+  "private": true,
+  "description": "Helios cross-platform design system: tokens, theming and React Native components",
+  "license": "UNLICENSED",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./tokens": {
+      "types": "./dist/tokens/index.d.ts",
+      "import": "./dist/tokens/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -b",
+    "clean": "rm -rf dist tsconfig.tsbuildinfo",
+    "lint": "eslint src",
+    "test": "vitest run",
+    "test:rn": "vitest run --config vitest.rn.config.ts",
+    "test:watch": "vitest",
+    "typecheck": "tsc -b && tsc -p tsconfig.test.json"
+  },
+  "peerDependencies": {
+    "react": ">=19.0.0",
+    "react-native": ">=0.76.0"
+  },
+  "devDependencies": {
+    "@testing-library/react-native": "^12.9.0",
+    "@types/node": "^22.10.2",
+    "@types/react": "^19.0.2",
+    "jsdom": "^25.0.1",
+    "react": "catalog:",
+    "react-native": "0.76.5",
+    "react-test-renderer": "19.0.0",
+    "typescript": "catalog:",
+    "vitest": "^2.1.8"
+  }
+}

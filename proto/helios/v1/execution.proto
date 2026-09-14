@@ -1,0 +1,380 @@
+// Order entry and lifecycle surface, served by apps/execution-gateway.
+//
+// Every mutating RPC carries a client_order_id. The gateway treats it as the
+// idempotency key (oms.order has a unique index on (account_id,
+// client_order_id)), so a mobile client retrying over a flaky cellular link
+// cannot create a duplicate order — the retry returns the original.
+syntax = "proto3";
+
+package helios.v1;
+
+import "helios/v1/common.proto";
+import "helios/v1/risk.proto";
+
+option go_package = "github.com/raymond-swiftcontrol/helios/proto/gen/go/helios/v1;heliosv1";
+
+service ExecutionService {
+  rpc SubmitOrder(SubmitOrderRequest) returns (SubmitOrderResponse);
+  rpc CancelOrder(CancelOrderRequest) returns (CancelOrderResponse);
+  rpc ReplaceOrder(ReplaceOrderRequest) returns (ReplaceOrderResponse);
+  rpc GetOrder(GetOrderRequest) returns (GetOrderResponse);
+  rpc ListOrders(ListOrdersRequest) returns (ListOrdersResponse);
+  rpc StreamOrderEvents(StreamOrderEventsRequest) returns (stream OrderEvent);
+  // Dry run: cost, fees and risk impact without creating an order. Backs the
+  // mobile order ticket's preview panel.
+  rpc PreviewOrder(PreviewOrderRequest) returns (PreviewOrderResponse);
+}
+
+// Mirrors oms.order_type.
+enum OrderType {
+  ORDER_TYPE_UNSPECIFIED = 0;
+  ORDER_TYPE_MARKET = 1;
+  ORDER_TYPE_LIMIT = 2;
+  ORDER_TYPE_STOP = 3;
+  ORDER_TYPE_STOP_LIMIT = 4;
+  ORDER_TYPE_TRAILING_STOP = 5;
+  ORDER_TYPE_MARKET_ON_OPEN = 6;
+  ORDER_TYPE_MARKET_ON_CLOSE = 7;
+  ORDER_TYPE_LIMIT_ON_CLOSE = 8;
+  ORDER_TYPE_PEGGED = 9;
+  ORDER_TYPE_ICEBERG = 10;
+}
+
+// Mirrors oms.time_in_force.
+enum TimeInForce {
+  TIME_IN_FORCE_UNSPECIFIED = 0;
+  TIME_IN_FORCE_DAY = 1;
+  TIME_IN_FORCE_GTC = 2;
+  TIME_IN_FORCE_IOC = 3;
+  TIME_IN_FORCE_FOK = 4;
+  TIME_IN_FORCE_OPG = 5;
+  TIME_IN_FORCE_CLS = 6;
+  TIME_IN_FORCE_GTD = 7;
+}
+
+// Mirrors oms.order_status. The Go state machine in internal/oms and
+// oms.is_valid_transition are tested against each other.
+enum OrderStatus {
+  ORDER_STATUS_UNSPECIFIED = 0;
+  ORDER_STATUS_DRAFT = 1;
+  ORDER_STATUS_PENDING_RISK = 2;
+  ORDER_STATUS_RISK_REJECTED = 3;
+  ORDER_STATUS_PENDING_NEW = 4;
+  ORDER_STATUS_NEW = 5;
+  ORDER_STATUS_PARTIALLY_FILLED = 6;
+  ORDER_STATUS_FILLED = 7;
+  ORDER_STATUS_PENDING_CANCEL = 8;
+  ORDER_STATUS_CANCELLED = 9;
+  ORDER_STATUS_PENDING_REPLACE = 10;
+  ORDER_STATUS_REPLACED = 11;
+  ORDER_STATUS_REJECTED = 12;
+  ORDER_STATUS_EXPIRED = 13;
+  ORDER_STATUS_SUSPENDED = 14;
+}
+
+// Mirrors oms.execution_algo.
+enum ExecutionAlgo {
+  EXECUTION_ALGO_UNSPECIFIED = 0;
+  EXECUTION_ALGO_NONE = 1;
+  EXECUTION_ALGO_TWAP = 2;
+  EXECUTION_ALGO_VWAP = 3;
+  EXECUTION_ALGO_POV = 4;
+  EXECUTION_ALGO_ICEBERG = 5;
+  EXECUTION_ALGO_SNIPER = 6;
+  EXECUTION_ALGO_IMPLEMENTATION_SHORTFALL = 7;
+}
+
+// Mirrors oms.order_source.
+enum OrderSource {
+  ORDER_SOURCE_UNSPECIFIED = 0;
+  ORDER_SOURCE_MOBILE = 1;
+  ORDER_SOURCE_WEB = 2;
+  ORDER_SOURCE_API = 3;
+  ORDER_SOURCE_STRATEGY = 4;
+  ORDER_SOURCE_RISK_LIQUIDATION = 5;
+  ORDER_SOURCE_REBALANCE = 6;
+}
+
+// Mirrors oms.event_type.
+enum OrderEventType {
+  ORDER_EVENT_TYPE_UNSPECIFIED = 0;
+  ORDER_EVENT_TYPE_CREATED = 1;
+  ORDER_EVENT_TYPE_RISK_APPROVED = 2;
+  ORDER_EVENT_TYPE_RISK_REJECTED = 3;
+  ORDER_EVENT_TYPE_SUBMITTED = 4;
+  ORDER_EVENT_TYPE_ACKED = 5;
+  ORDER_EVENT_TYPE_PARTIAL_FILL = 6;
+  ORDER_EVENT_TYPE_FILL = 7;
+  ORDER_EVENT_TYPE_CANCEL_REQUESTED = 8;
+  ORDER_EVENT_TYPE_CANCELLED = 9;
+  ORDER_EVENT_TYPE_REPLACE_REQUESTED = 10;
+  ORDER_EVENT_TYPE_REPLACED = 11;
+  ORDER_EVENT_TYPE_REJECTED = 12;
+  ORDER_EVENT_TYPE_EXPIRED = 13;
+  ORDER_EVENT_TYPE_SUSPENDED = 14;
+  ORDER_EVENT_TYPE_RESUMED = 15;
+  ORDER_EVENT_TYPE_BROKER_ERROR = 16;
+}
+
+// Mirrors book.broker.
+enum Broker {
+  BROKER_UNSPECIFIED = 0;
+  BROKER_INTERNAL_SIM = 1;
+  BROKER_ALPACA = 2;
+  BROKER_INTERACTIVE_BROKERS = 3;
+  BROKER_TRADIER = 4;
+  BROKER_BINANCE = 5;
+  BROKER_COINBASE = 6;
+  BROKER_OANDA = 7;
+  BROKER_TASTYTRADE = 8;
+}
+
+message AlgoParams {
+  ExecutionAlgo algo = 1;
+  Timestamp start_at = 2;
+  Timestamp end_at = 3;
+  Decimal target_participation_rate = 4;
+  Decimal max_participation_rate = 5;
+  int32 slice_count = 6;
+  int32 interval_seconds = 7;
+  // Fraction by which slice size and timing are jittered. A perfectly regular
+  // schedule is trivially detectable and gets front-run.
+  Decimal randomize_pct = 8;
+  Decimal display_quantity = 9;  // iceberg
+  string benchmark_type = 10;    // arrival | vwap | twap | close
+  // Implementation-shortfall urgency in [0,1]; trades off market impact against
+  // timing risk.
+  Decimal urgency = 11;
+}
+
+message SubmitOrderRequest {
+  string client_order_id = 1;
+  string account_id = 2;
+  string portfolio_id = 3;
+  string instrument_id = 4;
+  Side side = 5;
+  OrderType order_type = 6;
+  TimeInForce time_in_force = 7;
+  Decimal quantity = 8;
+  Decimal notional = 9;  // alternative to quantity for fractional orders
+  Decimal limit_price = 10;
+  Decimal stop_price = 11;
+  Decimal trail_amount = 12;
+  Decimal trail_percent = 13;
+  Decimal display_quantity = 14;
+  bool extended_hours = 15;
+  string good_till_date = 16;  // ISO-8601 date, required for GTD
+  OrderSource source = 17;
+  string submitted_by_user_id = 18;
+  string strategy_id = 19;
+  AlgoParams algo = 20;
+  string oco_group_id = 21;
+  string bracket_role = 22;
+  string routing_strategy = 23;
+}
+
+message Fill {
+  string fill_id = 1;
+  string order_id = 2;
+  string broker_exec_id = 3;
+  Side side = 4;
+  Decimal quantity = 5;
+  Decimal price = 6;
+  Decimal gross_amount = 7;
+  Decimal commission = 8;
+  Decimal sec_fee = 9;
+  Decimal taf_fee = 10;
+  Decimal clearing_fee = 11;
+  Decimal exchange_fee = 12;
+  Decimal other_fees = 13;
+  Decimal net_amount = 14;
+  int32 venue_id = 15;
+  string liquidity_flag = 16;
+  Decimal nbbo_bid = 17;
+  Decimal nbbo_ask = 18;
+  Decimal effective_spread_bps = 19;
+  Decimal price_improvement = 20;
+  Decimal realized_pnl = 21;
+  string trade_date = 22;
+  string settlement_date = 23;
+  Timestamp executed_at = 24;
+}
+
+message Order {
+  string order_id = 1;
+  string public_id = 2;
+  string client_order_id = 3;
+  string account_id = 4;
+  string portfolio_id = 5;
+  InstrumentRef instrument = 6;
+  Side side = 7;
+  OrderType order_type = 8;
+  TimeInForce time_in_force = 9;
+  Decimal quantity = 10;
+  Decimal limit_price = 11;
+  Decimal stop_price = 12;
+  Decimal display_quantity = 13;
+  bool extended_hours = 14;
+  OrderStatus status = 15;
+  Decimal filled_quantity = 16;
+  Decimal leaves_quantity = 17;
+  Decimal avg_fill_price = 18;
+  Decimal commission = 19;
+  Decimal fees = 20;
+  Decimal arrival_price = 21;
+  Decimal slippage_bps = 22;
+  ExecutionAlgo algo = 23;
+  string parent_order_id = 24;
+  Broker broker = 25;
+  string broker_order_id = 26;
+  int32 venue_id = 27;
+  string routing_strategy = 28;
+  string rejected_code = 29;
+  string rejected_reason = 30;
+  Timestamp created_at = 31;
+  Timestamp submitted_at = 32;
+  Timestamp acked_at = 33;
+  Timestamp terminal_at = 34;
+  repeated Fill fills = 35;
+}
+
+message SubmitOrderResponse {
+  Order order = 1;
+  // True when this call matched an existing client_order_id and returned the
+  // original order instead of creating a second one.
+  bool idempotent_replay = 2;
+  Error error = 3;
+}
+
+message CancelOrderRequest {
+  string order_id = 1;
+  string account_id = 2;
+  string reason = 3;
+}
+
+message CancelOrderResponse {
+  Order order = 1;
+  // A cancel request is an *attempt*: the order can still fill while
+  // pending_cancel. Clients must not treat acceptance as flat.
+  bool cancel_acknowledged = 2;
+  Error error = 3;
+}
+
+message ReplaceOrderRequest {
+  string order_id = 1;
+  string account_id = 2;
+  string client_order_id = 3;  // idempotency key for the replacement
+  Decimal quantity = 4;
+  Decimal limit_price = 5;
+  Decimal stop_price = 6;
+  TimeInForce time_in_force = 7;
+}
+
+message ReplaceOrderResponse {
+  Order replacement = 1;
+  Order original = 2;
+  Error error = 3;
+}
+
+message GetOrderRequest {
+  string order_id = 1;
+  string client_order_id = 2;  // alternative lookup, with account_id
+  string account_id = 3;
+  bool include_events = 4;
+  bool include_fills = 5;
+}
+
+message GetOrderResponse {
+  Order order = 1;
+  repeated OrderEvent events = 2;
+  repeated RouteDecision routes = 3;
+}
+
+message ListOrdersRequest {
+  string account_id = 1;
+  repeated OrderStatus statuses = 2;
+  string instrument_id = 3;
+  string strategy_id = 4;
+  Timestamp from = 5;
+  Timestamp to = 6;
+  bool working_only = 7;
+  PageRequest page = 8;
+}
+
+message ListOrdersResponse {
+  repeated Order orders = 1;
+  PageResponse page = 2;
+}
+
+message OrderEvent {
+  int64 event_id = 1;
+  string order_id = 2;
+  int32 sequence = 3;
+  OrderEventType event_type = 4;
+  OrderStatus from_status = 5;
+  OrderStatus to_status = 6;
+  Decimal quantity = 7;
+  Decimal price = 8;
+  string message = 9;
+  string trace_id = 10;
+  string actor = 11;
+  Timestamp occurred_at = 12;
+  Order order = 13;  // full snapshot, so a reconnecting client needs one RPC
+}
+
+message StreamOrderEventsRequest {
+  string account_id = 1;
+  repeated string order_ids = 2;
+  // Replay from this event id before switching to live. 0 = live only.
+  int64 from_event_id = 3;
+}
+
+message RouteDecision {
+  int32 sequence = 1;
+  int32 venue_id = 2;
+  Broker broker = 3;
+  Decimal quantity = 4;
+  Decimal expected_cost_bps = 5;
+  Decimal expected_fill_probability = 6;
+  int32 latency_estimate_ms = 7;
+  Decimal score = 8;
+  repeated RouteCandidate candidates = 9;
+  Timestamp decided_at = 10;
+}
+
+message RouteCandidate {
+  int32 venue_id = 1;
+  Broker broker = 2;
+  string venue_code = 3;
+  Decimal expected_cost_bps = 4;
+  Decimal expected_fill_probability = 5;
+  int32 latency_estimate_ms = 6;
+  Decimal score = 7;
+  bool eligible = 8;
+  string ineligible_reason = 9;
+}
+
+message PreviewOrderRequest {
+  SubmitOrderRequest order = 1;
+}
+
+message PreviewOrderResponse {
+  Decimal estimated_price = 1;
+  Decimal estimated_notional = 2;
+  Decimal estimated_commission = 3;
+  Decimal estimated_sec_fee = 4;
+  Decimal estimated_taf_fee = 5;
+  Decimal estimated_clearing_fee = 6;
+  Decimal estimated_exchange_fee = 7;
+  Decimal estimated_total_fees = 8;
+  Decimal estimated_slippage_bps = 9;
+  Decimal estimated_market_impact_bps = 10;
+  Decimal buying_power_before = 11;
+  Decimal buying_power_after = 12;
+  Decimal margin_requirement = 13;
+  bool risk_approved = 14;
+  string risk_reject_code = 15;
+  repeated RiskCheck risk_checks = 16;
+  RouteDecision route = 17;
+  repeated string warnings = 18;
+}

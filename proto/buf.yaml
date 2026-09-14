@@ -1,0 +1,23 @@
+# buf v2 module for the Helios shared contracts.
+#
+# Lint is set to DEFAULT minus RPC_REQUEST_STANDARD_NAME: several RPCs here
+# deliberately reuse a message (PreviewOrderRequest wraps SubmitOrderRequest) so
+# that the preview and the submit can never drift apart, which the naming rule
+# forbids. Breaking-change detection runs against the main branch in CI.
+version: v2
+modules:
+  - path: .
+    name: buf.build/helios/contracts
+lint:
+  use:
+    - STANDARD
+  except:
+    - RPC_REQUEST_STANDARD_NAME
+    - RPC_RESPONSE_STANDARD_NAME
+    - RPC_REQUEST_RESPONSE_UNIQUE
+  enum_zero_value_suffix: _UNSPECIFIED
+breaking:
+  use:
+    - FILE
+  except:
+    - FIELD_SAME_DEFAULT
