@@ -179,6 +179,18 @@ export const ENTRY_REASONS = [
 export const EntryReason = sqlEnum(ENTRY_REASONS);
 export type EntryReason = z.infer<typeof EntryReason>;
 
+export const TRANSFER_STATUSES = [
+  'requested',
+  'pending_review',
+  'approved',
+  'submitted',
+  'settled',
+  'rejected',
+  'returned',
+] as const;
+export const TransferStatus = sqlEnum(TRANSFER_STATUSES);
+export type TransferStatus = z.infer<typeof TransferStatus>;
+
 export const TRANSFER_DIRECTIONS = ['deposit', 'withdrawal', 'internal'] as const;
 export const TransferDirection = sqlEnum(TRANSFER_DIRECTIONS);
 export type TransferDirection = z.infer<typeof TransferDirection>;
@@ -315,18 +327,38 @@ export const KYC_STATUSES = [
 export const KycStatus = sqlEnum(KYC_STATUSES);
 export type KycStatus = z.infer<typeof KycStatus>;
 
+export const ACTOR_KINDS = ['user', 'service', 'system', 'admin', 'broker'] as const;
+export const ActorKind = sqlEnum(ACTOR_KINDS);
+export type ActorKind = z.infer<typeof ActorKind>;
+
 export const CLIENT_PLATFORMS = ['ios', 'android', 'web', 'cli'] as const;
 export const ClientPlatform = sqlEnum(CLIENT_PLATFORMS);
 export type ClientPlatform = z.infer<typeof ClientPlatform>;
 
-// ── research / risk / notify (planned migrations 0009+) ──────────────────────
-// Not yet in db/migrations; kept here because the contracts are already consumed
-// by the quant engine and the mobile client. When the migration lands, add the
-// type name to enums.test.ts's parity list.
+// ── research (migration 0009) ────────────────────────────────────────────────
+export const STRATEGY_KINDS = [
+  'trend_following',
+  'mean_reversion',
+  'momentum',
+  'statistical_arbitrage',
+  'pairs_trading',
+  'market_making',
+  'volatility',
+  'options_income',
+  'factor_long_short',
+  'risk_parity',
+  'event_driven',
+  'machine_learning',
+  'custom',
+] as const;
+export const StrategyKind = sqlEnum(STRATEGY_KINDS);
+export type StrategyKind = z.infer<typeof StrategyKind>;
+
 export const STRATEGY_STATUSES = [
   'draft',
   'backtesting',
-  'paper',
+  'validated',
+  'paper_trading',
   'live',
   'paused',
   'retired',
@@ -334,66 +366,176 @@ export const STRATEGY_STATUSES = [
 export const StrategyStatus = sqlEnum(STRATEGY_STATUSES);
 export type StrategyStatus = z.infer<typeof StrategyStatus>;
 
-export const SIGNAL_DIRECTIONS = ['long', 'short', 'flat', 'reduce', 'exit'] as const;
-export const SignalDirection = sqlEnum(SIGNAL_DIRECTIONS);
-export type SignalDirection = z.infer<typeof SignalDirection>;
+/**
+ * A signal says what to do, not which way the book should lean: 'reduce' and
+ * 'increase' are relative to the current position, so a strategy can express
+ * "trim" without knowing the position size it will be applied against.
+ */
+export const SIGNAL_ACTIONS = [
+  'enter_long',
+  'enter_short',
+  'exit_long',
+  'exit_short',
+  'increase',
+  'reduce',
+  'flat',
+  'hold',
+  'rebalance',
+] as const;
+export const SignalAction = sqlEnum(SIGNAL_ACTIONS);
+export type SignalAction = z.infer<typeof SignalAction>;
 
+// ── research: backtests and features (migrations 0010, 0011) ─────────────────
 export const BACKTEST_STATUSES = [
   'queued',
+  'preparing',
   'running',
-  'succeeded',
+  'completed',
   'failed',
   'cancelled',
+  'expired',
 ] as const;
 export const BacktestStatus = sqlEnum(BACKTEST_STATUSES);
 export type BacktestStatus = z.infer<typeof BacktestStatus>;
 
-export const SAMPLE_DESIGNATIONS = ['in_sample', 'out_of_sample', 'walk_forward'] as const;
+/**
+ * 'paper_forward' and 'live' are sample designations too: a result measured on
+ * data the strategy has actually traded through is a stronger claim than an
+ * out-of-sample split, and the social layer displays which one it is.
+ */
+export const SAMPLE_DESIGNATIONS = [
+  'in_sample',
+  'out_of_sample',
+  'walk_forward',
+  'paper_forward',
+  'live',
+] as const;
 export const SampleDesignation = sqlEnum(SAMPLE_DESIGNATIONS);
 export type SampleDesignation = z.infer<typeof SampleDesignation>;
 
-export const RISK_VERDICTS = ['approved', 'approved_with_warnings', 'rejected'] as const;
+export const SLIPPAGE_MODELS = [
+  'none',
+  'fixed_bps',
+  'spread_proportional',
+  'square_root_impact',
+  'book_replay',
+] as const;
+export const SlippageModel = sqlEnum(SLIPPAGE_MODELS);
+export type SlippageModel = z.infer<typeof SlippageModel>;
+
+export const FEATURE_CATEGORIES = [
+  'trend',
+  'momentum',
+  'volatility',
+  'mean_reversion',
+  'volume',
+  'liquidity',
+  'microstructure',
+  'fundamental',
+  'estimate',
+  'sentiment',
+  'macro',
+  'seasonality',
+  'cross_sectional',
+  'regime',
+  'derived',
+] as const;
+export const FeatureCategory = sqlEnum(FEATURE_CATEGORIES);
+export type FeatureCategory = z.infer<typeof FeatureCategory>;
+
+// ── risk (migration 0012) ────────────────────────────────────────────────────
+/** `risk.decision`. 'error' is a verdict too: a gate that failed did not approve. */
+export const RISK_VERDICTS = ['approved', 'approved_with_warnings', 'rejected', 'error'] as const;
 export const RiskVerdict = sqlEnum(RISK_VERDICTS);
 export type RiskVerdict = z.infer<typeof RiskVerdict>;
 
-export const RISK_LIMIT_SCOPES = ['account', 'portfolio', 'strategy', 'instrument', 'desk'] as const;
+export const RISK_LIMIT_SCOPES = [
+  'account',
+  'portfolio',
+  'deployment',
+  'instrument',
+  'sector',
+  'asset_class',
+  'desk',
+] as const;
 export const RiskLimitScope = sqlEnum(RISK_LIMIT_SCOPES);
 export type RiskLimitScope = z.infer<typeof RiskLimitScope>;
 
 export const RISK_LIMIT_KINDS = [
   'max_position_notional',
   'max_position_pct_equity',
-  'max_order_notional',
+  'max_position_pct_adv',
   'max_gross_exposure',
   'max_net_exposure',
   'max_leverage',
+  'max_concentration',
+  'max_sector_exposure',
+  'max_instrument_count',
   'max_daily_loss',
+  'max_weekly_loss',
   'max_drawdown',
-  'max_var_95',
-  'max_concentration_pct',
+  'max_order_notional',
   'max_orders_per_minute',
+  'max_daily_turnover',
+  'min_liquidity_adv',
+  'max_var_95',
+  'max_portfolio_beta',
+  'max_options_delta',
+  'max_options_vega',
   'restricted_instrument',
 ] as const;
 export const RiskLimitKind = sqlEnum(RISK_LIMIT_KINDS);
 export type RiskLimitKind = z.infer<typeof RiskLimitKind>;
 
+/** hard rejects, soft warns and records, advisory only surfaces in the UI. */
+export const RISK_ENFORCEMENTS = ['hard', 'soft', 'advisory'] as const;
+export const RiskEnforcement = sqlEnum(RISK_ENFORCEMENTS);
+export type RiskEnforcement = z.infer<typeof RiskEnforcement>;
+
+/** Not a SQL enum: the method is a column on `risk.portfolio_snapshot`. */
 export const VAR_METHODS = ['historical', 'parametric', 'monte_carlo'] as const;
 export const VarMethod = sqlEnum(VAR_METHODS);
 export type VarMethod = z.infer<typeof VarMethod>;
 
+// ── notify (migration 0013) ──────────────────────────────────────────────────
 export const ALERT_TRIGGER_KINDS = [
   'price_above',
   'price_below',
-  'pct_change',
+  'price_crosses',
+  'percent_move',
+  'percent_move_intraday',
+  'gap',
   'volume_spike',
+  'unusual_options_activity',
   'indicator_cross',
+  'indicator_threshold',
+  'earnings_upcoming',
+  'corporate_action',
+  'order_filled',
+  'order_rejected',
   'position_pnl',
+  'stop_hit',
   'risk_breach',
-  'order_status',
-  'earnings_date',
+  'margin_call',
+  'kill_switch',
+  'strategy_signal',
+  'backtest_complete',
+  'broker_sync_stale',
+  'reconciliation_break',
+  'social_mention',
+  'social_follow',
+  'social_reply',
 ] as const;
 export const AlertTriggerKind = sqlEnum(ALERT_TRIGGER_KINDS);
 export type AlertTriggerKind = z.infer<typeof AlertTriggerKind>;
+
+/**
+ * Urgency, not priority: it decides whether a notification may break through a
+ * quiet-hours window, which is a user-facing promise rather than a queue hint.
+ */
+export const NOTIFICATION_URGENCIES = ['critical', 'high', 'normal', 'low'] as const;
+export const NotificationUrgency = sqlEnum(NOTIFICATION_URGENCIES);
+export type NotificationUrgency = z.infer<typeof NotificationUrgency>;
 
 export const NOTIFICATION_CHANNELS = ['push', 'email', 'sms', 'in_app', 'webhook'] as const;
 export const NotificationChannel = sqlEnum(NOTIFICATION_CHANNELS);
@@ -406,6 +548,7 @@ export const NOTIFICATION_STATUSES = [
   'read',
   'failed',
   'suppressed',
+  'expired',
 ] as const;
 export const NotificationStatus = sqlEnum(NOTIFICATION_STATUSES);
 export type NotificationStatus = z.infer<typeof NotificationStatus>;

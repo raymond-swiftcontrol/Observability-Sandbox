@@ -10,9 +10,9 @@ from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor
 from opentelemetry.sdk.trace.sampling import ParentBased, TraceIdRatioBased
-from prometheus_client import CollectorRegistry, Counter, Histogram
+from prometheus_client import CollectorRegistry, Counter, Gauge, Histogram
 
-from helios_quant.config import Settings
+from helios_risk.config import Settings
 
 if TYPE_CHECKING:  # pragma: no cover - import cycle only exists for the annotation
     from fastapi import FastAPI
@@ -20,30 +20,42 @@ if TYPE_CHECKING:  # pragma: no cover - import cycle only exists for the annotat
 REGISTRY = CollectorRegistry()
 
 HTTP_REQUESTS = Counter(
-    "helios_quant_http_requests_total",
+    "helios_risk_http_requests_total",
     "HTTP requests handled",
     ["method", "route", "status"],
     registry=REGISTRY,
 )
 HTTP_LATENCY = Histogram(
-    "helios_quant_http_request_duration_seconds",
+    "helios_risk_http_request_duration_seconds",
     "HTTP request duration",
     ["method", "route"],
-    # Buckets chosen around the surfaces that matter: a feature read should be
-    # single-digit ms, a synchronous backtest submit is allowed ~1s.
-    buckets=(0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0),
+    # Buckets are tight at the bottom: the pre-trade gate lives in the first
+    # three of them and a histogram that starts at 5ms cannot show that.
+    buckets=(0.0005, 0.001, 0.002, 0.005, 0.01, 0.025, 0.05, 0.1, 0.5, 1.0),
     registry=REGISTRY,
 )
-BACKTESTS_RUN = Counter(
-    "helios_quant_backtests_total",
-    "Backtests executed, by engine and outcome",
-    ["engine", "outcome"],
+PRETRADE_DECISIONS = Counter(
+    "helios_risk_pretrade_decisions_total",
+    "Pre-trade gate decisions by verdict",
+    ["verdict"],
     registry=REGISTRY,
 )
-FEATURE_ROWS = Counter(
-    "helios_quant_feature_rows_total",
-    "Feature rows written to the point-in-time store",
-    ["feature"],
+PRETRADE_LATENCY = Histogram(
+    "helios_risk_pretrade_duration_seconds",
+    "Pre-trade gate evaluation time, excluding transport",
+    buckets=(0.0001, 0.00025, 0.0005, 0.001, 0.002, 0.005, 0.01, 0.025, 0.05),
+    registry=REGISTRY,
+)
+LIMIT_BREACHES = Counter(
+    "helios_risk_limit_breaches_total",
+    "Limit rules that evaluated to breach, by rule",
+    ["rule", "severity"],
+    registry=REGISTRY,
+)
+KILLSWITCH_ACTIVE = Gauge(
+    "helios_risk_killswitch_active",
+    "1 when a kill switch is engaged at the given scope",
+    ["scope", "scope_id"],
     registry=REGISTRY,
 )
 
@@ -64,8 +76,8 @@ def setup_tracing(settings: Settings) -> None:
     )
     provider = TracerProvider(
         resource=resource,
-        # ParentBased keeps a sampled trace intact across services: sampling the
-        # gateway's decision again here would produce orphaned spans.
+        # ParentBased keeps a sampled trace intact across services: the order
+        # path's trace starts at the gateway and must not be re-diced here.
         sampler=ParentBased(TraceIdRatioBased(settings.otel_traces_sampler_arg)),
     )
     provider.add_span_processor(
@@ -76,7 +88,7 @@ def setup_tracing(settings: Settings) -> None:
 
 
 def instrument_app(app: FastAPI) -> None:
-    """Attach FastAPI and asyncpg instrumentation; tolerate missing extras."""
+    """Attach FastAPI and asyncpg instrumentation."""
     from opentelemetry.instrumentation.asyncpg import AsyncPGInstrumentor
     from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 
@@ -87,4 +99,4 @@ def instrument_app(app: FastAPI) -> None:
 
 
 def tracer() -> trace.Tracer:
-    return trace.get_tracer("helios_quant")
+    return trace.get_tracer("helios_risk")

@@ -262,8 +262,10 @@ CREATE TABLE reference.option_contract (
 CREATE INDEX option_chain_idx
   ON reference.option_contract (underlying_id, expiration_date, strike)
   INCLUDE (option_type);
-CREATE INDEX option_expiry_idx ON reference.option_contract (expiration_date)
-  WHERE expiration_date >= CURRENT_DATE;
+-- No partial predicate: CURRENT_DATE is not IMMUTABLE, so "only unexpired
+-- contracts" cannot be expressed in an index WHERE clause. Range scans on the
+-- full index are cheap here because expired contracts sort to one end.
+CREATE INDEX option_expiry_idx ON reference.option_contract (expiration_date);
 
 CREATE TABLE reference.future_contract (
   instrument_id    uuid PRIMARY KEY REFERENCES reference.instrument(id) ON DELETE CASCADE,

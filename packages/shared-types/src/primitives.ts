@@ -12,7 +12,7 @@
  *     `reference.quantity` is numeric(38,18) (see db/migrations/0001); a double
  *     cannot represent either, and JSON.parse would silently truncate them.
  */
-import Decimal from 'decimal.js-light';
+import { Decimal, type Config, type Numeric } from 'decimal.js-light';
 import { z } from 'zod';
 
 /**
@@ -21,7 +21,13 @@ import { z } from 'zod';
  * a storable scale. Cloned rather than configured globally so that a dependency
  * calling `Decimal.set` cannot change the platform's arithmetic under us.
  */
-export const HeliosDecimal = Decimal.clone({ precision: 40, rounding: 4 });
+type DecimalConstructor = new (value: Numeric) => Decimal;
+/** `clone` exists at runtime but is missing from the shipped `.d.ts`. */
+const DecimalStatics = Decimal as unknown as { clone(config: Config): DecimalConstructor };
+export const HeliosDecimal: DecimalConstructor = DecimalStatics.clone({
+  precision: 40,
+  rounding: 4,
+});
 export type HeliosDecimal = Decimal;
 
 /** Crockford base32 (no I, L, O, U) as produced by `platform.public_id()`. */
@@ -53,7 +59,8 @@ export const PortfolioId = brandedId('pf', 'PortfolioId');
 export const OrderId = brandedId('ord', 'OrderId');
 export const FillId = brandedId('fil', 'FillId');
 export const UserId = brandedId('usr', 'UserId');
-export const StrategyId = brandedId('stg', 'StrategyId');
+export const StrategyId = brandedId('str', 'StrategyId');
+export const DeploymentId = brandedId('dep', 'DeploymentId');
 export const BacktestId = brandedId('bt', 'BacktestId');
 export const PostId = brandedId('pst', 'PostId');
 export const ConnectionId = brandedId('bcx', 'ConnectionId');
@@ -66,6 +73,7 @@ export type OrderId = z.infer<typeof OrderId>;
 export type FillId = z.infer<typeof FillId>;
 export type UserId = z.infer<typeof UserId>;
 export type StrategyId = z.infer<typeof StrategyId>;
+export type DeploymentId = z.infer<typeof DeploymentId>;
 export type BacktestId = z.infer<typeof BacktestId>;
 export type PostId = z.infer<typeof PostId>;
 export type ConnectionId = z.infer<typeof ConnectionId>;
@@ -163,6 +171,8 @@ export const Quantity = decimalScalar({ scale: 18, signed: true, label: 'quantit
 export const Ratio = decimalScalar({ scale: 10, signed: true, label: 'ratio' }, 'Ratio');
 /** numeric(12,6) — slippage and fee rates. */
 export const Bps = decimalScalar({ scale: 6, signed: true, label: 'bps' }, 'Bps');
+/** numeric(12,10) — portfolio weights; the SQL domain bounds these to [-10, 10]. */
+export const Weight = decimalScalar({ scale: 10, signed: true, label: 'weight' }, 'Weight');
 
 export type Money = z.infer<typeof Money>;
 export type Price = z.infer<typeof Price>;
@@ -170,6 +180,7 @@ export type SignedPrice = z.infer<typeof SignedPrice>;
 export type Quantity = z.infer<typeof Quantity>;
 export type Ratio = z.infer<typeof Ratio>;
 export type Bps = z.infer<typeof Bps>;
+export type Weight = z.infer<typeof Weight>;
 
 function parser<T>(schema: { parse: (v: unknown) => T }, label: string) {
   return (input: unknown): T => {
@@ -192,7 +203,9 @@ export const parseOrderId = (v: unknown): OrderId => OrderId.parse(v);
 export const parseUserId = (v: unknown): UserId => UserId.parse(v);
 
 /** Widen any decimal scalar to a `Decimal` for arithmetic. */
-export function toDecimal(value: Money | Price | SignedPrice | Quantity | Ratio | Bps): Decimal {
+export function toDecimal(
+  value: Money | Price | SignedPrice | Quantity | Ratio | Bps | Weight,
+): Decimal {
   return new HeliosDecimal(value as unknown as string);
 }
 

@@ -29,6 +29,7 @@ select = [
   "B",        # bugbear
   "C4",       # comprehensions
   "SIM",      # simplify
+  "BLE",      # blind except — permitted only with an explicit noqa and a reason
   "RUF",
   "ANN",      # annotations — the point of mypy --strict is undermined without these
   "N",        # pep8-naming
@@ -39,6 +40,9 @@ ignore = [
   # `covariance_matrix` makes the formulas harder to check against a paper.
   "N803", "N806",
   "B008",   # FastAPI Depends() in defaults is the framework's idiom
+  # Error details and log context are genuinely open-ended key/value bags. The
+  # alternative is a TypedDict per call site, which types nothing useful.
+  "ANN401",
 ]
 
 [tool.ruff.lint.per-file-ignores]

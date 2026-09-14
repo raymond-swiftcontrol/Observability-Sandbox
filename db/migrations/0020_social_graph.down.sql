@@ -1,0 +1,11 @@
+DROP TABLE IF EXISTS social.author_stats CASCADE;
+DROP TRIGGER IF EXISTS trg_block_severs_follows ON social.block;
+DROP FUNCTION IF EXISTS social.enforce_block();
+DROP TRIGGER IF EXISTS trg_follow_counters ON social.follow;
+DROP FUNCTION IF EXISTS social.sync_follow_counters();
+DROP FUNCTION IF EXISTS social.can_view_profile(uuid, uuid);
+DROP FUNCTION IF EXISTS social.is_blocked_between(uuid, uuid);
+DROP TABLE IF EXISTS social.mute, social.block, social.follow CASCADE;
+DROP FUNCTION IF EXISTS social.handle_available(citext);
+DROP TABLE IF EXISTS social.handle_release, social.profile CASCADE;
+DROP TYPE IF EXISTS social.follow_state, social.disclosure_level, social.visibility;

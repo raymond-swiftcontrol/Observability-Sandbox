@@ -178,9 +178,12 @@ CREATE TABLE fundamental.corporate_event (
   UNIQUE (instrument_id, event_type, scheduled_at)
 );
 
+-- now() is STABLE, not IMMUTABLE, so an "upcoming events" predicate is
+-- illegal in an index. is_confirmed partitions the table usefully instead, and
+-- the time bound is applied by the query planner against the ordered column.
 CREATE INDEX corporate_event_upcoming_idx
-  ON fundamental.corporate_event (scheduled_at)
-  WHERE scheduled_at >= now() - INTERVAL '1 day';
+  ON fundamental.corporate_event (scheduled_at, event_type)
+  WHERE is_confirmed;
 CREATE INDEX corporate_event_instrument_idx
   ON fundamental.corporate_event (instrument_id, scheduled_at DESC);
 

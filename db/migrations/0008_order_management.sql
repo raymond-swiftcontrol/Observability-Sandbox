@@ -156,12 +156,6 @@ CREATE INDEX order_expiring_idx ON oms.order (expires_at)
 COMMENT ON COLUMN oms.order.arrival_price IS
   'Mid price at the instant of submission. Slippage and implementation shortfall are meaningless without it, and it cannot be reconstructed later once quote retention expires.';
 
--- Close the forward reference from book.position_lot.
-ALTER TABLE book.position_lot
-  ADD CONSTRAINT position_lot_opening_fill_fk
-  FOREIGN KEY (opening_fill_id) REFERENCES oms.fill(id) ON DELETE SET NULL
-  NOT VALID;   -- validated at the end of this migration, after oms.fill exists
-
 -- ── Event log ────────────────────────────────────────────────────────────────
 CREATE TYPE oms.event_type AS ENUM (
   'created', 'risk_approved', 'risk_rejected', 'submitted', 'acked', 'partial_fill',
@@ -335,12 +329,19 @@ CREATE UNIQUE INDEX fill_broker_exec_idx ON oms.fill (broker_exec_id)
 CREATE INDEX fill_order_idx ON oms.fill (order_id, executed_at);
 CREATE INDEX fill_account_time_idx ON oms.fill (account_id, executed_at DESC);
 CREATE INDEX fill_instrument_time_idx ON oms.fill (instrument_id, executed_at DESC);
+-- CURRENT_DATE is not IMMUTABLE. Indexing settlement_date with a NOT NULL
+-- predicate keeps the index to fills that actually have a settlement leg; the
+-- "unsettled" bound is a query-time comparison.
 CREATE INDEX fill_unsettled_idx ON oms.fill (settlement_date)
-  WHERE settlement_date >= CURRENT_DATE;
+  WHERE settlement_date IS NOT NULL;
 CREATE INDEX fill_unposted_idx ON oms.fill (recorded_at)
   WHERE ledger_transaction_id IS NULL;
 
-ALTER TABLE book.position_lot VALIDATE CONSTRAINT position_lot_opening_fill_fk;
+-- Close the forward reference from book.position_lot, which was declared
+-- without a foreign key in 0007 because oms.fill did not exist yet.
+ALTER TABLE book.position_lot
+  ADD CONSTRAINT position_lot_opening_fill_fk
+  FOREIGN KEY (opening_fill_id) REFERENCES oms.fill(id) ON DELETE SET NULL;
 
 -- Fills drive the order projection. Doing this in a trigger rather than in
 -- application code means the aggregate can never drift from its fills.
