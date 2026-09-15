@@ -33,7 +33,7 @@ export function requirePositiveInt(value: number, label: string): number {
   return value;
 }
 
-export function requireNonEmpty(values: readonly number[], label: string): void {
+export function requireNonEmpty<T>(values: readonly T[], label: string): void {
   if (values.length === 0) throw new QuantError(`${label} must not be empty`);
 }
 

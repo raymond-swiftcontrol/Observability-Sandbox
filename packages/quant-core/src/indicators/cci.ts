@@ -16,7 +16,7 @@ export function cci(bars: readonly OhlcvBar[], period = 20): Series {
   const out = filled(bars.length);
   for (let i = period - 1; i < bars.length; i += 1) {
     const mean = smaTP[i];
-    if (mean === null) continue;
+    if (mean == null) continue;
     let meanDeviation = 0;
     for (let j = i - period + 1; j <= i; j += 1) {
       meanDeviation += Math.abs((typicalPrices[j] as number) - mean);

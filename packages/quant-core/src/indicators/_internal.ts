@@ -7,7 +7,7 @@ import type { Series } from '../utils.js';
 /** Splits off the leading `null` warm-up run of a `Series`, returning the rest as a plain number array. */
 export function trimLeadingNulls(series: Series): { offset: number; values: number[] } {
   let offset = 0;
-  while (offset < series.length && series[offset] === null) offset += 1;
+  while (offset < series.length && series[offset] == null) offset += 1;
   return { offset, values: series.slice(offset) as number[] };
 }
 

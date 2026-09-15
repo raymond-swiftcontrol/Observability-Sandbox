@@ -34,7 +34,7 @@ function midline(bars: readonly OhlcvBar[], period: number): Series {
   for (let i = 0; i < bars.length; i += 1) {
     const h = highs[i];
     const l = lows[i];
-    if (h !== null && l !== null) out[i] = (h + l) / 2;
+    if (h != null && l != null) out[i] = (h + l) / 2;
   }
   return out;
 }
@@ -65,9 +65,9 @@ export function ichimoku(
     if (i >= displacement) {
       const c = conversionLine[i - displacement];
       const b = baseLine[i - displacement];
-      if (c !== null && b !== null) spanA[i] = (c + b) / 2;
+      if (c != null && b != null) spanA[i] = (c + b) / 2;
       const sb = spanBRaw[i - displacement];
-      if (sb !== null) spanB[i] = sb;
+      if (sb != null) spanB[i] = sb;
     }
     if (i + displacement < n) {
       laggingSpan[i] = bars[i + displacement]!.close;

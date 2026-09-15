@@ -27,7 +27,7 @@ export function keltnerChannels(
   for (let i = 0; i < bars.length; i += 1) {
     const m = middle[i];
     const a = bandWidth[i];
-    if (m === null || a === null) continue;
+    if (m == null || a == null) continue;
     upper[i] = m + multiplier * a;
     lower[i] = m - multiplier * a;
   }

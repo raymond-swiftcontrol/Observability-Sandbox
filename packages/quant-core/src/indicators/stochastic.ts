@@ -39,7 +39,7 @@ export function stochastic(
   for (let i = 0; i < bars.length; i += 1) {
     const hh = highestHigh[i];
     const ll = lowestLow[i];
-    if (hh === null || ll === null) continue;
+    if (hh == null || ll == null) continue;
     rawK[i] = safeDiv((closes[i] as number) - ll, hh - ll, 50) * 100;
   }
 

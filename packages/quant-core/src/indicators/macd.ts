@@ -27,7 +27,7 @@ export function macd(
   for (let i = 0; i < values.length; i += 1) {
     const f = fastEma[i];
     const s = slowEma[i];
-    if (f !== null && s !== null) macdLine[i] = f - s;
+    if (f != null && s != null) macdLine[i] = f - s;
   }
 
   const { offset, values: macdValues } = trimLeadingNulls(macdLine);
@@ -38,7 +38,7 @@ export function macd(
   for (let i = 0; i < values.length; i += 1) {
     const m = macdLine[i];
     const s = signal[i];
-    if (m !== null && s !== null) histogram[i] = m - s;
+    if (m != null && s != null) histogram[i] = m - s;
   }
 
   return { macd: macdLine, signal, histogram };

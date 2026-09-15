@@ -20,7 +20,6 @@ import (
 	"time"
 
 	"github.com/segmentio/kafka-go"
-	"github.com/segmentio/kafka-go/compress"
 )
 
 // Metrics receives the sink's counters. A narrow interface (rather than
@@ -36,11 +35,11 @@ type Metrics interface {
 
 type nopMetrics struct{}
 
-func (nopMetrics) KafkaProduced(string)            {}
-func (nopMetrics) KafkaError(string)               {}
-func (nopMetrics) DBBatchRows(int, time.Duration)  {}
-func (nopMetrics) DBShed(int)                      {}
-func (nopMetrics) DBBuffered(int)                  {}
+func (nopMetrics) KafkaProduced(string)           {}
+func (nopMetrics) KafkaError(string)              {}
+func (nopMetrics) DBBatchRows(int, time.Duration) {}
+func (nopMetrics) DBShed(int)                     {}
+func (nopMetrics) DBBuffered(int)                 {}
 
 // ErrProducerClosed is returned by Publish once Close has been called.
 var ErrProducerClosed = errors.New("sink: kafka producer is closed")
@@ -87,19 +86,20 @@ func (c *KafkaConfig) withDefaults() {
 // NewWriter builds the real *kafka.Writer used in production. Balancer is
 // Hash{} deliberately: kafka-go's default balancer (round robin) ignores the
 // message key entirely, which would silently defeat the per-instrument
-// ordering this package exists to provide.
+// ordering this package exists to provide. The client id is carried on a
+// dedicated Transport so it shows up in the broker's request logs and quota
+// accounting.
 func NewWriter(cfg KafkaConfig) *kafka.Writer {
 	cfg.withDefaults()
-	w := &kafka.Writer{
+	return &kafka.Writer{
 		Addr:         kafka.TCP(cfg.Brokers...),
 		Balancer:     &kafka.Hash{},
 		RequiredAcks: kafka.RequireOne,
 		BatchTimeout: 25 * time.Millisecond,
 		Async:        false, // ordering is enforced by our own lanes; see below
-		ClientID:     "", // ClientID has no direct Writer field; carried via Transport if needed
 		Compression:  compressionCodec(cfg.Compression),
+		Transport:    &kafka.Transport{ClientID: cfg.ClientID},
 	}
-	return w
 }
 
 func compressionCodec(name string) kafka.Compression {
@@ -116,11 +116,6 @@ func compressionCodec(name string) kafka.Compression {
 		return kafka.Zstd
 	}
 }
-
-// staticCompressionCodec is referenced only to keep the compress import used
-// for documentation of the supported codec set in one place; kafka.Writer's
-// Compression field above is what actually configures it.
-var _ = compress.Zstd
 
 // KafkaProducer is an async, per-key-ordered Kafka publisher with bounded
 // buffering and backpressure.

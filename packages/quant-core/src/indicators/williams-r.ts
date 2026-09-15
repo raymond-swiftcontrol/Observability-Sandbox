@@ -17,7 +17,7 @@ export function williamsR(bars: readonly OhlcvBar[], period = 14): Series {
   for (let i = 0; i < bars.length; i += 1) {
     const hh = highestHigh[i];
     const ll = lowestLow[i];
-    if (hh === null || ll === null) continue;
+    if (hh == null || ll == null) continue;
     const close = (bars[i] as OhlcvBar).close;
     out[i] = safeDiv(hh - close, hh - ll, 0) * -100;
   }

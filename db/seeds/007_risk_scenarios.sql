@@ -1,0 +1,38 @@
+-- Stress scenarios. Historical windows replay real market behaviour, which
+-- captures correlation breakdown in a way parametric shocks cannot; the
+-- parametric ones cover moves we have no clean historical analogue for.
+INSERT INTO risk.stress_scenario (key, name, description, kind, window_start, window_end, shocks) VALUES
+  ('gfc_2008q4', 'Global Financial Crisis (Q4 2008)',
+   'Peak crisis window. Equity beta, credit and liquidity all fail together, which is the point: a portfolio hedged on normal-regime correlations is not hedged here.',
+   'historical', '2008-09-15', '2008-12-31', '{}'::jsonb),
+  ('covid_2020', 'COVID Crash (Feb-Mar 2020)',
+   'Fastest 30% drawdown on record, with a volatility spike that repriced every option book.',
+   'historical', '2020-02-19', '2020-03-23', '{}'::jsonb),
+  ('rates_2022', 'Rates Repricing (2022)',
+   'Duration and growth equities fell together, breaking the 60/40 diversification assumption for a full year.',
+   'historical', '2022-01-03', '2022-10-14', '{}'::jsonb),
+  ('volmageddon_2018', 'Volmageddon (Feb 2018)',
+   'Short-vol unwind. Included because it is the cleanest example of a strategy whose backtest looked excellent right up to the day it did not.',
+   'historical', '2018-02-02', '2018-02-09', '{}'::jsonb),
+  ('yen_carry_2024', 'Yen Carry Unwind (Aug 2024)',
+   'Cross-asset deleveraging triggered by an FX move, with an equity vol spike disproportionate to the equity drawdown.',
+   'historical', '2024-08-01', '2024-08-07', '{}'::jsonb),
+  ('flash_crash', 'Intraday Flash Crash',
+   'Parametric: an instantaneous 8% gap down with liquidity withdrawal, to test stop placement and the participation cap rather than end-of-day P&L.',
+   'parametric', NULL, NULL,
+   '{"spot_pct":-8,"vol_points":25,"spread_multiplier":10,"correlation_to":1.0,"intraday":true}'::jsonb),
+  ('spot_down_10', 'Broad Equity -10%',
+   'Parametric: a uniform 10% equity decline with a 10-point vol rise.',
+   'parametric', NULL, NULL,
+   '{"spot_pct":-10,"vol_points":10,"correlation_to":0.9}'::jsonb),
+  ('spot_down_20', 'Broad Equity -20%',
+   'Parametric: bear-market shock with correlations converging to one.',
+   'parametric', NULL, NULL,
+   '{"spot_pct":-20,"vol_points":20,"correlation_to":1.0}'::jsonb),
+  ('vol_spike_50', 'Volatility +50 points',
+   'Parametric: a pure vol shock with spot unchanged. Isolates vega risk, which a spot-only scenario set would miss entirely.',
+   'parametric', NULL, NULL, '{"spot_pct":0,"vol_points":50}'::jsonb),
+  ('rates_up_200bp', 'Rates +200bp',
+   'Parametric: a parallel curve shift, for duration-sensitive holdings and option rho.',
+   'parametric', NULL, NULL, '{"rates_bps":200,"spot_pct":-5}'::jsonb)
+ON CONFLICT (key) DO UPDATE SET description = EXCLUDED.description;

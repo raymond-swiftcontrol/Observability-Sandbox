@@ -26,7 +26,7 @@ export function supertrend(bars: readonly OhlcvBar[], period = 10, multiplier = 
 
   for (let i = 0; i < n; i += 1) {
     const a = atrValues[i];
-    if (a === null) continue;
+    if (a == null) continue;
     const bar = bars[i] as OhlcvBar;
     const mid = (bar.high + bar.low) / 2;
     const basicUpper = mid + multiplier * a;

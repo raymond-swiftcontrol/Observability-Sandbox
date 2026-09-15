@@ -55,7 +55,7 @@ export function adx(bars: readonly OhlcvBar[], period = 14): AdxResult {
     const strTot = smoothedTR[i];
     const sPlus = smoothedPlusDM[i];
     const sMinus = smoothedMinusDM[i];
-    if (strTot === null || sPlus === null || sMinus === null) continue;
+    if (strTot == null || sPlus == null || sMinus == null) continue;
     const globalIndex = i + 1; // shift back for the slice(1) above
     const pdi = safeDiv(sPlus, strTot, 0) * 100;
     const mdi = safeDiv(sMinus, strTot, 0) * 100;
@@ -81,6 +81,6 @@ export function adx(bars: readonly OhlcvBar[], period = 14): AdxResult {
 
 function trimDxLeadingNulls(dx: readonly (number | null)[]): { offset: number; values: number[] } {
   let offset = 0;
-  while (offset < dx.length && dx[offset] === null) offset += 1;
+  while (offset < dx.length && dx[offset] == null) offset += 1;
   return { offset, values: dx.slice(offset) as number[] };
 }

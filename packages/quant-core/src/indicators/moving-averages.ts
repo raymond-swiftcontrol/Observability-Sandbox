@@ -92,7 +92,7 @@ export function dema(values: readonly number[], period: number): Series {
   const out = filled(values.length);
   for (let i = 0; i < ema2.length; i += 1) {
     const e2 = ema2[i];
-    if (e2 === null) continue;
+    if (e2 == null) continue;
     const e1 = ema1Values[i] as number;
     out[offset + i] = 2 * e1 - e2;
   }
@@ -113,7 +113,7 @@ export function tema(values: readonly number[], period: number): Series {
   const out = filled(values.length);
   for (let i = 0; i < ema3.length; i += 1) {
     const e3 = ema3[i];
-    if (e3 === null) continue;
+    if (e3 == null) continue;
     const e2 = ema2Values[i] as number;
     const e1 = ema1Values[offset2 + i] as number;
     out[totalOffset + i] = 3 * e1 - 3 * e2 + e3;
@@ -141,7 +141,7 @@ export function hullMA(values: readonly number[], period: number): Series {
   for (let i = 0; i < values.length; i += 1) {
     const h = wmaHalf[i];
     const f = wmaFull[i];
-    if (h !== null && f !== null) raw[i] = 2 * h - f;
+    if (h != null && f != null) raw[i] = 2 * h - f;
   }
 
   const { offset, values: rawValues } = trimLeadingNulls(raw);

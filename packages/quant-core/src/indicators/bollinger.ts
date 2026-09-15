@@ -28,7 +28,7 @@ export function bollingerBands(
   for (let i = 0; i < values.length; i += 1) {
     const m = middle[i];
     const sd = stddev[i];
-    if (m === null || sd === null) continue;
+    if (m == null || sd == null) continue;
     upper[i] = m + stdDevMultiplier * sd;
     lower[i] = m - stdDevMultiplier * sd;
     bandwidth[i] = m === 0 ? 0 : ((upper[i] as number) - (lower[i] as number)) / m;

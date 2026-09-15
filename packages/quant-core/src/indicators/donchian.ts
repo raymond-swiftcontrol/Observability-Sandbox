@@ -23,7 +23,7 @@ export function donchianChannels(bars: readonly OhlcvBar[], period = 20): Donchi
   for (let i = 0; i < bars.length; i += 1) {
     const u = upper[i];
     const l = lower[i];
-    if (u !== null && l !== null) middle[i] = (u + l) / 2;
+    if (u != null && l != null) middle[i] = (u + l) / 2;
   }
   return { upper, lower, middle };
 }

@@ -63,7 +63,12 @@ CREATE DOMAIN reference.money      AS numeric(28, 8);
 CREATE DOMAIN reference.bps        AS numeric(12, 6);
 CREATE DOMAIN reference.ratio      AS numeric(18, 10);
 CREATE DOMAIN reference.weight     AS numeric(12, 10) CHECK (VALUE IS NULL OR (VALUE >= -10 AND VALUE <= 10));
-CREATE DOMAIN reference.currency_code AS char(3) CHECK (VALUE ~ '^[A-Z]{3}$');
+-- Not char(3): ISO 4217 codes are three characters, but crypto tickers are not
+-- (USDT, USDC, MATIC), and this domain keys every cash balance and ledger entry
+-- in the system. char() would also pad with trailing spaces, which turns an
+-- equality comparison against a trimmed string into a silent miss.
+CREATE DOMAIN reference.currency_code AS varchar(8)
+  CHECK (VALUE ~ '^[A-Z0-9]{3,8}$');
 CREATE DOMAIN reference.ticker     AS varchar(32) CHECK (VALUE = upper(VALUE) AND length(VALUE) > 0);
 CREATE DOMAIN reference.email      AS citext CHECK (VALUE ~ '^[^@[:space:]]+@[^@[:space:]]+\.[a-zA-Z]{2,}$');
 

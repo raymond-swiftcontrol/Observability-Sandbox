@@ -1,0 +1,35 @@
+-- Social detection rules. Only illegal_content is auto_removable — everything
+-- else shadow-limits and queues for a human, per the moderation spec and the
+-- trigger that enforces it.
+INSERT INTO social.detection_rule (key, name, description, category, auto_removable, parameters) VALUES
+  ('coordinated_smallcap',
+   'Coordinated small-cap promotion',
+   'Several accounts posting the same illiquid instrument inside a short window. The classic pump setup, and the reason instrument-tagged posting is rate limited by liquidity.',
+   'pump_and_dump', false,
+   '{"window_minutes":60,"min_accounts":4,"max_adv_usd":5000000,"min_score":0.7}'::jsonb),
+  ('cashtag_flooding',
+   'Cashtag flooding',
+   'One author posting the same instrument far beyond the normal rate. Distinguished from enthusiasm by the repetition penalty already in ranking; this rule catches the extreme tail.',
+   'spam', false,
+   '{"window_hours":24,"max_posts_per_instrument":5}'::jsonb),
+  ('unverified_performance_claim',
+   'Unverified performance claim',
+   'A post asserting a return figure in prose with no verified attachment. Flagged rather than blocked: people are allowed to talk about trades they did not make here, but the claim should not look verified.',
+   'misleading_performance', false,
+   '{"min_confidence":0.6}'::jsonb),
+  ('link_spam',
+   'Link spam',
+   'Repeated outbound links to the same domain from a new account.',
+   'spam', false,
+   '{"account_age_days":14,"max_links_per_day":3}'::jsonb),
+  ('impersonation_handle',
+   'Handle impersonation',
+   'A new handle within a small edit distance of an established high-follower account.',
+   'impersonation', false,
+   '{"max_edit_distance":2,"min_target_followers":5000}'::jsonb),
+  ('illegal_content',
+   'Illegal content',
+   'The one category permitted to remove without a human in the loop. Everything else waits for review, because an automated irreversible punishment is worse than a slow one.',
+   'illegal_content', true,
+   '{"min_confidence":0.95}'::jsonb)
+ON CONFLICT (key) DO UPDATE SET description = EXCLUDED.description;
