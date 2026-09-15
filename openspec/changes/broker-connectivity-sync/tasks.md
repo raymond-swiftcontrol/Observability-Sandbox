@@ -2,18 +2,18 @@
 
 ## 1. Schema
 
-- [ ] 1.1 Migration `0025_broker_providers.sql`: `broker.provider` catalogue with capability
+- [x] 1.1 Migration `0025_broker_providers.sql`: `broker.provider` catalogue with capability
       matrix, auth kind, rate limits; seed the supported provider list.
-- [ ] 1.2 Migration `0026_broker_connections.sql`: `broker.connection`,
+- [x] 1.2 Migration `0026_broker_connections.sql`: `broker.connection`,
       `broker.sync_cursor`, `broker.sync_run`; constraint that a read-only connection
       cannot be referenced by an order.
-- [ ] 1.3 Migration `0027_broker_transactions.sql`: `broker.external_transaction` with
+- [x] 1.3 Migration `0027_broker_transactions.sql`: `broker.external_transaction` with
       `(connection_id, external_id)` uniqueness and supersession chain;
       `broker.sync_gap`.
-- [ ] 1.4 Migration `0028_portfolio_import.sql`: `broker.import_batch`,
+- [x] 1.4 Migration `0028_portfolio_import.sql`: `broker.import_batch`,
       `broker.import_row`, `broker.format_profile`; add `basis_quality` and
       `source_connection_id` to `book.position_lot`.
-- [ ] 1.5 RLS policies for every new table, scoped by owning account.
+- [x] 1.5 RLS policies for every new table, scoped by owning account.
 
 ## 2. Adapter layer
 

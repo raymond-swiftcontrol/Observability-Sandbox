@@ -2,18 +2,18 @@
 
 ## 1. Schema foundations
 
-- [ ] 1.1 Migration `0020_social_graph.sql`: `social.profile`, `social.handle_release`,
+- [x] 1.1 Migration `0020_social_graph.sql`: `social.profile`, `social.handle_release`,
       `social.follow`, `social.block`, `social.mute`; handle uniqueness as a case-insensitive
       unique index; 30-day handle release enforced by a check against `handle_release`.
-- [ ] 1.2 Migration `0021_social_content.sql`: `social.post`, `social.post_instrument`,
+- [x] 1.2 Migration `0021_social_content.sql`: `social.post`, `social.post_instrument`,
       `social.post_attachment`, `social.reaction`, `social.bookmark`, `social.repost`;
       counter columns plus the triggers that maintain them.
-- [ ] 1.3 Migration `0022_social_groups_dm.sql`: `social.group`, `social.group_member`,
+- [x] 1.3 Migration `0022_social_groups_dm.sql`: `social.group`, `social.group_member`,
       `social.conversation`, `social.conversation_member`, `social.message` (hypertable,
       compression after 30 days).
-- [ ] 1.4 Migration `0023_social_moderation.sql`: `social.report`,
+- [x] 1.4 Migration `0023_social_moderation.sql`: `social.report`,
       `social.moderation_action`, `social.appeal`, `social.detection_signal`.
-- [ ] 1.5 Migration `0024_social_rls.sql`: RLS policies on every user-scoped social table,
+- [x] 1.5 Migration `0024_social_rls.sql`: RLS policies on every user-scoped social table,
       including the bidirectional block filter. Add the pgTAP-style assertions that prove a
       blocked user cannot select the blocker's rows.
 - [ ] 1.6 Seed data: 40 demo profiles with varied disclosure levels, a follow graph with a
