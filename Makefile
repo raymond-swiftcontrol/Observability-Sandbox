@@ -208,3 +208,12 @@ graph: ## Regenerate architecture diagrams
 
 secrets-scan:
 	gitleaks detect --no-banner --redact
+
+# ── schema validation (no TimescaleDB image required) ────────────────────────
+.PHONY: db-validate db-invariants
+db-validate: ## Apply every migration to a throwaway vanilla Postgres
+	python3 scripts/validate-schema.py
+
+db-invariants: ## Prove the schema's invariants hold (ledger, state machine, RLS…)
+	python3 scripts/validate-schema.py --keep
+	python3 -m pytest db/testing/test_invariants.py -q
