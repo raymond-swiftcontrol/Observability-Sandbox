@@ -320,8 +320,15 @@ func (a *Aggregator) Run(ctx context.Context) error {
 				return errJoin(ctx.Err(), err)
 			}
 			return ctx.Err()
-		case now := <-ticker.C():
-			if _, err := a.CheckCloses(ctx, now); err != nil {
+		case <-ticker.C():
+			// Sweep against the clock's current reading, NOT the timestamp the
+			// tick carries. A ticker channel is buffered by one and sent to
+			// non-blockingly, so under load — or after any pause longer than
+			// CloseCheck — the tick we receive can be arbitrarily stale. Using
+			// that stale timestamp would leave every bucket whose deadline
+			// fell in the gap open, which is precisely the quiet-symbol case
+			// this sweep exists to handle.
+			if _, err := a.CheckCloses(ctx, a.clk.Now()); err != nil {
 				a.logger.ErrorContext(ctx, "bar close sweep reported an error", slog.Any("error", err))
 			}
 		}

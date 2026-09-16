@@ -192,17 +192,27 @@ export const PostAttachment = z
     created_at: Timestamp,
   })
   .superRefine((a, ctx) => {
-    const present = {
-      trade: a.trade !== null,
+    // Which payload each attachment kind must carry. Typed as an exhaustive
+    // record over AttachmentKind so that adding a kind to the SQL enum (and
+    // therefore to AttachmentKind) fails to compile until a rule is stated for
+    // it — otherwise a new kind silently falls through to `undefined` here and
+    // every attachment of that kind is rejected at runtime instead.
+    const REQUIRED_PAYLOAD = {
+      fill: a.trade !== null,
       position: a.trade !== null,
-      portfolio: a.portfolio !== null,
+      portfolio_snapshot: a.portfolio !== null,
       backtest: a.backtest !== null,
-      media: a.media_url !== null,
-    }[a.kind];
-    if (!present) {
+      // A watchlist share carries only its reference; there is no payload to
+      // freeze, because a watchlist is a live list rather than a snapshot.
+      watchlist: true,
+      image: a.media_url !== null,
+      chart: a.media_url !== null,
+    } satisfies Record<AttachmentKind, boolean>;
+
+    if (!REQUIRED_PAYLOAD[a.kind]) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        message: `a ${a.kind} attachment must carry its ${a.kind} payload`,
+        message: `a ${a.kind} attachment must carry its payload`,
         path: ['kind'],
       });
     }

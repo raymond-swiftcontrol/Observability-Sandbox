@@ -1,0 +1,138 @@
+# Prometheus — scrapes every Helios service plus the infra exporters wired up
+# in docker-compose.observability.yml / docker-compose.apps.yml.
+#
+# Metrics port convention (see .env.example PROMETHEUS_PORT=9464): every
+# service exposes its OTel/prom-client metrics endpoint on 9464, separate from
+# its application port, whether that app port speaks HTTP, GraphQL, WS or gRPC.
+# Each service is its own container/DNS name on the `helios-net` network, so
+# static_configs address each other by service name.
+
+global:
+  scrape_interval: 15s
+  scrape_timeout: 10s
+  evaluation_interval: 15s
+  external_labels:
+    cluster: local
+    env: '${HELIOS_ENV:-local}'
+
+rule_files:
+  - /etc/prometheus/rules/*.yml
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: ['alertmanager:9093']
+
+scrape_configs:
+  # ── Prometheus itself ───────────────────────────────────────────────────
+  - job_name: prometheus
+    static_configs:
+      - targets: ['localhost:9090']
+
+  # ── OTel Collector (its own health + the app metrics it re-exports) ────
+  - job_name: otel-collector
+    static_configs:
+      - targets: ['otel-collector:8889']
+        labels: { component: otel-collector, signal: bridged }
+      - targets: ['otel-collector:8888']
+        labels: { component: otel-collector, signal: internal }
+
+  # ── Helios application services ─────────────────────────────────────────
+  - job_name: api-gateway
+    metrics_path: /metrics
+    static_configs:
+      - targets: ['api-gateway:9464']
+        labels: { service: api-gateway, team: platform, tier: edge }
+
+  - job_name: market-data-ingestor
+    metrics_path: /metrics
+    static_configs:
+      - targets: ['market-data-ingestor:9464']
+        labels: { service: market-data-ingestor, team: market-data, tier: ingest }
+
+  - job_name: execution-gateway
+    metrics_path: /metrics
+    static_configs:
+      - targets: ['execution-gateway:9464']
+        labels: { service: execution-gateway, team: execution, tier: order-path }
+
+  - job_name: quant-engine
+    metrics_path: /metrics
+    static_configs:
+      - targets: ['quant-engine:9464']
+        labels: { service: quant-engine, team: quant, tier: research }
+
+  - job_name: quant-worker
+    metrics_path: /metrics
+    # Celery workers run without a published port in docker-compose.apps.yml
+    # and scale via `replicas`; a single static target only ever reaches one
+    # replica behind Docker's round-robin DNS. In k8s this becomes a proper
+    # ServiceMonitor (see infra/helm/helios) selecting all worker pods.
+    static_configs:
+      - targets: ['quant-worker:9464']
+        labels: { service: quant-worker, team: quant, tier: batch }
+
+  - job_name: risk-engine
+    metrics_path: /metrics
+    static_configs:
+      - targets: ['risk-engine:9464']
+        labels: { service: risk-engine, team: risk, tier: order-path }
+
+  - job_name: notification-worker
+    metrics_path: /metrics
+    static_configs:
+      - targets: ['notification-worker:9464']
+        labels: { service: notification-worker, team: platform, tier: fanout }
+
+  # social-service and broker-sync are specified for deployment (see
+  # infra/helm/helios and infra/terraform) but have no apps/ source or
+  # docker-compose.apps.yml entry yet. Targets are kept here, commented out,
+  # so enabling the service is a one-line uncomment instead of a forgotten
+  # scrape gap.
+  # - job_name: social-service
+  #   metrics_path: /metrics
+  #   static_configs:
+  #     - targets: ['social-service:9464']
+  #       labels: { service: social-service, team: social, tier: social }
+  # - job_name: broker-sync
+  #   metrics_path: /metrics
+  #   static_configs:
+  #     - targets: ['broker-sync:9464']
+  #       labels: { service: broker-sync, team: broker-sync, tier: sync }
+
+  - job_name: web-console
+    metrics_path: /metrics
+    static_configs:
+      - targets: ['web-console:9464']
+        labels: { service: web-console, team: platform, tier: bff-web }
+
+  # ── Data stores / brokers and their exporters ───────────────────────────
+  - job_name: postgres-exporter
+    static_configs:
+      - targets: ['postgres-exporter:9187']
+        labels: { service: postgres, team: platform, tier: storage }
+
+  - job_name: redis-exporter
+    static_configs:
+      - targets: ['redis-exporter:9121']
+        labels: { service: redis, team: platform, tier: storage }
+
+  - job_name: redpanda
+    metrics_path: /public_metrics
+    static_configs:
+      - targets: ['redpanda:9644']
+        labels: { service: redpanda, team: platform, tier: streaming }
+
+  # ClickHouse's built-in Prometheus endpoint is disabled by default and no
+  # config.d override enables it in db/analytics/config; scraping is left out
+  # rather than pointing at a port that will 404. Enable by dropping a
+  # <prometheus> block into db/analytics/config and uncommenting below.
+  # - job_name: clickhouse
+  #   metrics_path: /metrics
+  #   static_configs:
+  #     - targets: ['clickhouse:9363']
+  #       labels: { service: clickhouse, team: platform, tier: storage }
+
+  - job_name: alertmanager
+    static_configs:
+      - targets: ['alertmanager:9093']

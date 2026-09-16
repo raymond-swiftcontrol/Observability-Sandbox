@@ -1,0 +1,240 @@
+# OpenTelemetry Collector (contrib) — the single ingest point for traces,
+# metrics and logs from every Helios service in local/dev docker-compose.
+#
+# Pipeline shape:
+#   receivers  -> OTLP grpc/http from every instrumented service
+#   processors -> memory_limiter (self-protection) -> resourcedetection
+#                 (attach environment facts) -> attributes (redact secrets)
+#                 -> tail_sampling (keep errors/slow traces, sample the rest)
+#                 -> batch (efficient export)
+#   exporters  -> Tempo (traces), Prometheus remote-write style scrape (metrics),
+#                 Loki (logs)
+#
+# Order matters: memory_limiter must be first in every pipeline, batch should
+# generally be last, and tail_sampling (which buffers spans to make a
+# trace-level decision) must run before batch re-shapes those decided spans
+# into export-sized batches.
+
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+
+  # Scrape the collector's own metrics so it shows up like any other service.
+  prometheus:
+    config:
+      scrape_configs:
+        - job_name: otel-collector-self
+          scrape_interval: 15s
+          static_configs:
+            - targets: ['0.0.0.0:8888']
+
+processors:
+  # Must be the first processor in every pipeline. Prevents an ingest spike
+  # (e.g. a synthetic-load run) from OOM-killing the collector.
+  memory_limiter:
+    check_interval: 2s
+    limit_mib: 1024
+    spike_limit_mib: 256
+
+  # Attaches host/process/container/environment resource attributes so traces,
+  # metrics and logs from the same pod correlate on more than just service.name.
+  resourcedetection:
+    detectors: [env, system, docker]
+    timeout: 3s
+    override: false
+
+  # Normalises service identity across the three signals; without this, a Go
+  # service and its sidecar can disagree on service.name casing/version.
+  resource:
+    attributes:
+      - key: deployment.environment
+        value: ${env:HELIOS_ENV}
+        action: upsert
+
+  # ── Secret redaction ────────────────────────────────────────────────────
+  # Helios moves money and PII; nothing named like a credential is allowed to
+  # leave the collector, whichever signal or attribute key it rides in.
+  # `update` with a fixed value scrubs the value but keeps the key, so a
+  # redacted field is still visible as "redacted" rather than silently
+  # vanishing (which would look like a missing-instrumentation bug).
+  attributes/redact:
+    actions:
+      - key: authorization
+        action: update
+        value: '[REDACTED]'
+      - key: http.request.header.authorization
+        action: update
+        value: '[REDACTED]'
+      - key: password
+        action: update
+        value: '[REDACTED]'
+      - key: token
+        action: update
+        value: '[REDACTED]'
+      - key: access_token
+        action: update
+        value: '[REDACTED]'
+      - key: refresh_token
+        action: update
+        value: '[REDACTED]'
+      - key: secret
+        action: update
+        value: '[REDACTED]'
+      - key: api_key
+        action: update
+        value: '[REDACTED]'
+      - key: apikey
+        action: update
+        value: '[REDACTED]'
+      - key: push_token
+        action: update
+        value: '[REDACTED]'
+      - key: secret_ref
+        action: update
+        value: '[REDACTED]'
+      - key: db.statement.parameters
+        action: delete
+      - key: broker_payload
+        action: delete
+
+  # Same redaction, applied to raw log records (structured JSON logs carry
+  # these keys as top-level fields more often than as span attributes).
+  attributes/redact-logs:
+    actions:
+      - key: authorization
+        action: update
+        value: '[REDACTED]'
+      - key: password
+        action: update
+        value: '[REDACTED]'
+      - key: token
+        action: update
+        value: '[REDACTED]'
+      - key: secret
+        action: update
+        value: '[REDACTED]'
+      - key: api_key
+        action: update
+        value: '[REDACTED]'
+      - key: push_token
+        action: update
+        value: '[REDACTED]'
+      - key: secret_ref
+        action: update
+        value: '[REDACTED]'
+
+  # ── Tail sampling ───────────────────────────────────────────────────────
+  # Evaluated per trace ID once all local spans for that trace have arrived
+  # (or the decision_wait elapses). Policies are OR'd: a trace matching any
+  # policy is kept. Order is evaluated top to bottom for the `and`/composite
+  # policies below; simple policies are independent.
+  tail_sampling:
+    decision_wait: 10s
+    num_traces: 100000
+    expected_new_traces_per_sec: 2000
+    policies:
+      # Always keep anything that errored, anywhere in the trace.
+      - name: keep-errors
+        type: status_code
+        status_code:
+          status_codes: [ERROR]
+      # Always keep slow requests — this is where the order-latency and
+      # risk-gate-latency SLOs get their trace-level evidence.
+      - name: keep-slow
+        type: latency
+        latency:
+          threshold_ms: 500
+      # Always keep anything touching the order/risk path, whatever its
+      # latency — these traces are cheap in volume and expensive to lose.
+      - name: keep-order-path
+        type: string_attribute
+        string_attribute:
+          key: service.name
+          values: [execution-gateway, risk-engine]
+          enabled_regex_matching: false
+      # Everything else: a flat probabilistic sample, so steady-state
+      # dashboards still have trace-level drill-down without keeping 100% of
+      # high-volume market-data traffic.
+      - name: baseline-probabilistic
+        type: probabilistic
+        probabilistic:
+          sampling_percentage: 10
+
+  batch:
+    timeout: 5s
+    send_batch_size: 1024
+    send_batch_max_size: 2048
+
+exporters:
+  otlp/tempo:
+    endpoint: tempo:4317
+    tls:
+      insecure: true
+
+  # Scraped by Prometheus (see prometheus.yml job "otel-collector"); native
+  # histograms + exemplars carry the exemplar trace_id/span_id through.
+  prometheus:
+    endpoint: 0.0.0.0:8889
+    resource_to_telemetry_conversion:
+      enabled: true
+    enable_open_metrics: true
+
+  loki:
+    endpoint: http://loki:3100/loki/api/v1/push
+    default_labels_enabled:
+      exporter: true
+      job: true
+
+  debug:
+    verbosity: basic
+    sampling_initial: 5
+    sampling_thereafter: 200
+
+extensions:
+  health_check:
+    endpoint: 0.0.0.0:13133
+  pprof:
+    endpoint: 0.0.0.0:1777
+  zpages:
+    endpoint: 0.0.0.0:55679
+
+service:
+  extensions: [health_check, pprof, zpages]
+  telemetry:
+    logs:
+      level: info
+    metrics:
+      level: detailed
+      address: 0.0.0.0:8888
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors:
+        - memory_limiter
+        - resourcedetection
+        - resource
+        - attributes/redact
+        - tail_sampling
+        - batch
+      exporters: [otlp/tempo, debug]
+    metrics:
+      receivers: [otlp, prometheus]
+      processors:
+        - memory_limiter
+        - resourcedetection
+        - resource
+        - batch
+      exporters: [prometheus]
+    logs:
+      receivers: [otlp]
+      processors:
+        - memory_limiter
+        - resourcedetection
+        - resource
+        - attributes/redact-logs
+        - batch
+      exporters: [loki]

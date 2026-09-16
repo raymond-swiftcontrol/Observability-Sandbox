@@ -21,7 +21,10 @@ function parseSqlEnums(): Map<string, string[]> {
     .filter((f) => f.endsWith('.sql') && !f.endsWith('.down.sql'))
     .sort();
   for (const file of files) {
-    const sql = readFileSync(join(MIGRATIONS_DIR, file), 'utf8');
+    // Strip line comments before matching. The migrations comment almost every
+    // enum member, and an apostrophe in prose ("the broker's own API") otherwise
+    // reads as a SQL string delimiter and swallows the rest of the declaration.
+    const sql = readFileSync(join(MIGRATIONS_DIR, file), 'utf8').replace(/--[^\n]*/g, '');
     const re = /CREATE TYPE\s+([a-z_]+\.[a-z_]+)\s+AS ENUM\s*\(([\s\S]*?)\);/g;
     for (const match of sql.matchAll(re)) {
       const [, name, body] = match;
@@ -82,6 +85,34 @@ const PARITY: ReadonlyArray<readonly [string, readonly string[]]> = [
   ['social.disclosure_level', E.PERFORMANCE_DISCLOSURES],
   ['social.follow_state', E.FOLLOW_STATES],
   ['audit.actor_kind', E.ACTOR_KINDS],
+  ['identity.mfa_method', E.MFA_METHODS],
+  ['reference.corporate_action_type', E.CORPORATE_ACTION_TYPES],
+  ['fundamental.statement_type', E.STATEMENT_TYPES],
+  ['fundamental.fiscal_period', E.FISCAL_PERIODS],
+  ['fundamental.restatement', E.RESTATEMENTS],
+  ['fundamental.event_type', E.EVENT_TYPES],
+  ['social.verification', E.VERIFICATIONS],
+  ['social.group_visibility', E.GROUP_VISIBILITIES],
+  ['social.group_role', E.GROUP_ROLES],
+  ['social.conversation_state', E.CONVERSATION_STATES],
+  ['social.report_status', E.REPORT_STATUSES],
+  ['social.moderation_verdict', E.MODERATION_VERDICTS],
+  ['social.target_kind', E.TARGET_KINDS],
+  ['broker.integration_kind', E.INTEGRATION_KINDS],
+  ['broker.resource', E.RESOURCES],
+  ['broker.break_kind', E.BREAK_KINDS],
+  ['broker.import_state', E.IMPORT_STATES],
+  ['social.post_kind', E.POST_KINDS],
+  ['social.attachment_kind', E.ATTACHMENT_KINDS],
+  ['social.moderation_state', E.MODERATION_STATES],
+  ['social.reaction_kind', E.REACTION_KINDS],
+  ['social.report_category', E.REPORT_CATEGORIES],
+  ['broker.auth_kind', E.AUTH_KINDS],
+  ['broker.connection_state', E.CONNECTION_STATES],
+  ['broker.sync_outcome', E.SYNC_OUTCOMES],
+  ['broker.basis_quality', E.BASIS_QUALITIES],
+  ['broker.import_row_outcome', E.IMPORT_ROW_OUTCOMES],
+  ['broker.import_state', E.IMPORT_BATCH_STATES],
 ];
 
 describe('SQL enum parity', () => {

@@ -657,7 +657,7 @@ describe('social contracts', () => {
   const attachment = {
     id: UUID,
     post_id: 'pst_01JB3QF7K2ZXQ8M4',
-    kind: 'trade',
+    kind: 'fill',
     verification: {
       verdict: 'verified',
       method: 'broker_sync',

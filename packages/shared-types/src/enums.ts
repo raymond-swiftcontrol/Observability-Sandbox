@@ -562,7 +562,14 @@ export const PERFORMANCE_DISCLOSURES = ['none', 'returns_only', 'full'] as const
 export const PerformanceDisclosure = sqlEnum(PERFORMANCE_DISCLOSURES);
 export type PerformanceDisclosure = z.infer<typeof PerformanceDisclosure>;
 
-export const POST_KINDS = ['text', 'trade', 'portfolio', 'backtest', 'repost'] as const;
+export const POST_KINDS = [
+  'text',
+  'trade',
+  'portfolio',
+  'backtest',
+  'watchlist',
+  'repost',
+] as const;
 export const PostKind = sqlEnum(POST_KINDS);
 export type PostKind = z.infer<typeof PostKind>;
 
@@ -575,12 +582,19 @@ export const MODERATION_STATES = [
   'pending_review',
   'shadow_limited',
   'removed',
-  'appealed',
 ] as const;
 export const ModerationState = sqlEnum(MODERATION_STATES);
 export type ModerationState = z.infer<typeof ModerationState>;
 
-export const ATTACHMENT_KINDS = ['trade', 'position', 'portfolio', 'backtest', 'media'] as const;
+export const ATTACHMENT_KINDS = [
+  'fill',
+  'position',
+  'portfolio_snapshot',
+  'backtest',
+  'watchlist',
+  'image',
+  'chart',
+] as const;
 export const AttachmentKind = sqlEnum(ATTACHMENT_KINDS);
 export type AttachmentKind = z.infer<typeof AttachmentKind>;
 
@@ -606,17 +620,27 @@ export const FOLLOW_STATES = ['pending', 'active'] as const;
 export const FollowState = sqlEnum(FOLLOW_STATES);
 export type FollowState = z.infer<typeof FollowState>;
 
-export const REACTION_KINDS = ['like', 'insightful', 'disagree', 'bookmark'] as const;
+export const REACTION_KINDS = [
+  'like',
+  'insightful',
+  'agree',
+  'disagree',
+  'curious',
+] as const;
 export const ReactionKind = sqlEnum(REACTION_KINDS);
 export type ReactionKind = z.infer<typeof ReactionKind>;
 
 export const REPORT_CATEGORIES = [
   'market_manipulation',
+  'pump_and_dump',
   'spam',
+  'misleading_performance',
   'harassment',
+  'hate_speech',
   'impersonation',
-  'misinformation',
   'unlicensed_advice',
+  'self_harm',
+  'illegal_content',
   'other',
 ] as const;
 export const ReportCategory = sqlEnum(REPORT_CATEGORIES);
@@ -635,17 +659,24 @@ export const PROVIDER_KINDS = ['native', 'aggregator'] as const;
 export const ProviderKind = sqlEnum(PROVIDER_KINDS);
 export type ProviderKind = z.infer<typeof ProviderKind>;
 
-export const AUTH_KINDS = ['oauth2', 'api_key', 'username_password', 'token_exchange'] as const;
+export const AUTH_KINDS = [
+  'oauth2',
+  'oauth1',
+  'api_key',
+  'api_key_secret',
+  'username_password',
+  'gateway_session',
+] as const;
 export const AuthKind = sqlEnum(AUTH_KINDS);
 export type AuthKind = z.infer<typeof AuthKind>;
 
 export const CONNECTION_STATES = [
   'pending',
   'active',
-  'degraded',
   'reauthorisation_required',
-  'disconnected',
+  'degraded',
   'revoked',
+  'error',
 ] as const;
 export const ConnectionState = sqlEnum(CONNECTION_STATES);
 export type ConnectionState = z.infer<typeof ConnectionState>;
@@ -661,7 +692,8 @@ export const SYNC_OUTCOMES = [
   'auth_failed',
   'contract_violation',
   'provider_error',
-  'cancelled',
+  'timeout',
+  'skipped',
 ] as const;
 export const SyncOutcome = sqlEnum(SYNC_OUTCOMES);
 export type SyncOutcome = z.infer<typeof SyncOutcome>;
@@ -702,16 +734,220 @@ export type ReconciliationBreakType = z.infer<typeof ReconciliationBreakType>;
 
 export const IMPORT_BATCH_STATES = [
   'uploaded',
-  'mapping',
+  'parsing',
   'previewed',
   'committing',
   'committed',
   'failed',
-  'abandoned',
+  'cancelled',
 ] as const;
 export const ImportBatchState = sqlEnum(IMPORT_BATCH_STATES);
 export type ImportBatchState = z.infer<typeof ImportBatchState>;
 
-export const IMPORT_ROW_OUTCOMES = ['creatable', 'duplicate', 'rejected'] as const;
+export const IMPORT_ROW_OUTCOMES = [
+  'create',
+  'duplicate',
+  'rejected',
+  'ignored',
+] as const;
 export const ImportRowOutcome = sqlEnum(IMPORT_ROW_OUTCOMES);
 export type ImportRowOutcome = z.infer<typeof ImportRowOutcome>;
+
+// ─────────────────────────────────────────────────────────────────────────
+// Generated from the migrations to close a parity gap. The enum-parity test
+// compares these member-for-member against the SQL, so adding a value in one
+// place without the other fails the build rather than production.
+// ─────────────────────────────────────────────────────────────────────────
+
+/** `identity.mfa_method` */
+export const MFA_METHODS = [
+  'totp',
+  'webauthn',
+  'sms',
+  'recovery_code',
+] as const;
+export const MfaMethod = sqlEnum(MFA_METHODS);
+export type MfaMethod = z.infer<typeof MfaMethod>;
+
+/** `reference.corporate_action_type` */
+export const CORPORATE_ACTION_TYPES = [
+  'cash_dividend',
+  'special_dividend',
+  'stock_dividend',
+  'split',
+  'reverse_split',
+  'spinoff',
+  'merger',
+  'acquisition',
+  'rights_issue',
+  'ticker_change',
+  'delisting',
+  'bankruptcy',
+  'return_of_capital',
+] as const;
+export const CorporateActionType = sqlEnum(CORPORATE_ACTION_TYPES);
+export type CorporateActionType = z.infer<typeof CorporateActionType>;
+
+/** `fundamental.statement_type` */
+export const STATEMENT_TYPES = [
+  'income',
+  'balance',
+  'cash_flow',
+] as const;
+export const StatementType = sqlEnum(STATEMENT_TYPES);
+export type StatementType = z.infer<typeof StatementType>;
+
+/** `fundamental.fiscal_period` */
+export const FISCAL_PERIODS = [
+  'Q1',
+  'Q2',
+  'Q3',
+  'Q4',
+  'FY',
+  'H1',
+  'H2',
+  'TTM',
+] as const;
+export const FiscalPeriod = sqlEnum(FISCAL_PERIODS);
+export type FiscalPeriod = z.infer<typeof FiscalPeriod>;
+
+/** `fundamental.restatement` */
+export const RESTATEMENTS = [
+  'original',
+  'restated',
+  'preliminary',
+  'amended',
+] as const;
+export const Restatement = sqlEnum(RESTATEMENTS);
+export type Restatement = z.infer<typeof Restatement>;
+
+/** `fundamental.event_type` */
+export const EVENT_TYPES = [
+  'earnings',
+  'guidance',
+  'dividend_declaration',
+  'investor_day',
+  'shareholder_meeting',
+  'product_launch',
+  'fda_decision',
+  'index_rebalance',
+  'lockup_expiry',
+  'secondary_offering',
+] as const;
+export const EventType = sqlEnum(EVENT_TYPES);
+export type EventType = z.infer<typeof EventType>;
+
+/** `social.verification` */
+export const VERIFICATIONS = [
+  'verified',
+  'unverified',
+  'revoked',
+] as const;
+export const Verification = sqlEnum(VERIFICATIONS);
+export type Verification = z.infer<typeof Verification>;
+
+/** `social.group_visibility` */
+export const GROUP_VISIBILITIES = [
+  'open',
+  'request',
+  'invite_only',
+] as const;
+export const GroupVisibility = sqlEnum(GROUP_VISIBILITIES);
+export type GroupVisibility = z.infer<typeof GroupVisibility>;
+
+/** `social.group_role` */
+export const GROUP_ROLES = [
+  'owner',
+  'moderator',
+  'member',
+] as const;
+export const GroupRole = sqlEnum(GROUP_ROLES);
+export type GroupRole = z.infer<typeof GroupRole>;
+
+/** `social.conversation_state` */
+export const CONVERSATION_STATES = [
+  'requested',
+  'accepted',
+  'declined',
+  'archived',
+] as const;
+export const ConversationState = sqlEnum(CONVERSATION_STATES);
+export type ConversationState = z.infer<typeof ConversationState>;
+
+/** `social.report_status` */
+export const REPORT_STATUSES = [
+  'open',
+  'triaged',
+  'actioned',
+  'dismissed',
+  'duplicate',
+] as const;
+export const ReportStatus = sqlEnum(REPORT_STATUSES);
+export type ReportStatus = z.infer<typeof ReportStatus>;
+
+/** `social.moderation_verdict` */
+export const MODERATION_VERDICTS = [
+  'cleared',
+  'shadow_limited',
+  'removed',
+  'account_suspended',
+  'warning_issued',
+] as const;
+export const ModerationVerdict = sqlEnum(MODERATION_VERDICTS);
+export type ModerationVerdict = z.infer<typeof ModerationVerdict>;
+
+/** `social.target_kind` */
+export const TARGET_KINDS = [
+  'post',
+  'profile',
+  'message',
+  'group',
+] as const;
+export const TargetKind = sqlEnum(TARGET_KINDS);
+export type TargetKind = z.infer<typeof TargetKind>;
+
+/** `broker.integration_kind` */
+export const INTEGRATION_KINDS = [
+  'native',
+  'aggregator',
+] as const;
+export const IntegrationKind = sqlEnum(INTEGRATION_KINDS);
+export type IntegrationKind = z.infer<typeof IntegrationKind>;
+
+/** `broker.resource` */
+export const RESOURCES = [
+  'balances',
+  'positions',
+  'transactions',
+  'orders',
+  'lots',
+  'documents',
+] as const;
+export const Resource = sqlEnum(RESOURCES);
+export type Resource = z.infer<typeof Resource>;
+
+/** `broker.break_kind` */
+export const BREAK_KINDS = [
+  'quantity',
+  'cash',
+  'cost_basis',
+  'missing_in_broker',
+  'missing_in_helios',
+  'corporate_action_suspected',
+  'currency',
+] as const;
+export const BreakKind = sqlEnum(BREAK_KINDS);
+export type BreakKind = z.infer<typeof BreakKind>;
+
+/** `broker.import_state` */
+export const IMPORT_STATES = [
+  'uploaded',
+  'parsing',
+  'previewed',
+  'committing',
+  'committed',
+  'failed',
+  'cancelled',
+] as const;
+export const ImportState = sqlEnum(IMPORT_STATES);
+export type ImportState = z.infer<typeof ImportState>;

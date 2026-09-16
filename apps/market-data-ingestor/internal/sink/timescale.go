@@ -8,6 +8,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/raymond-swiftcontrol/helios/apps/market-data-ingestor/internal/clock"
 	"github.com/raymond-swiftcontrol/helios/apps/market-data-ingestor/internal/model"
@@ -287,6 +288,71 @@ func NewBookSnapshotWriter(pool Pool, cfg BatchConfig, clk clock.Clock, metrics 
 		}
 	}
 	return NewTableWriter("market.book_snapshot", columns, toRow, pool, cfg, clk, metrics, logger)
+}
+
+// FeedHealthRow and DataGap mirror health.FeedHealthRow/DataGap. Defined here
+// rather than imported from internal/health so this package's public surface
+// does not force every caller of the timescale writers to depend on the
+// health package's Tracker just to get its row shape.
+type FeedHealthRow struct {
+	TS             time.Time
+	Vendor         string
+	Feed           string
+	Messages       int64
+	Bytes          int64
+	GapsDetected   int32
+	SequenceResets int32
+	P50LatencyMs   *int32
+	P99LatencyMs   *int32
+	MaxLatencyMs   *int32
+	Reconnects     int32
+	LastError      string
+}
+
+// DataGap mirrors market.data_gap.
+type DataGap struct {
+	InstrumentID uuid.UUID
+	Feed         string
+	GapStart     time.Time
+	GapEnd       time.Time
+	ExpectedRows int32
+	ActualRows   int32
+}
+
+// NewFeedHealthWriter builds a TableWriter for market.feed_health.
+func NewFeedHealthWriter(pool Pool, cfg BatchConfig, clk clock.Clock, metrics Metrics, logger *slog.Logger) *TableWriter[FeedHealthRow] {
+	columns := []string{"ts", "vendor", "feed", "messages", "bytes", "gaps_detected", "sequence_resets", "p50_latency_ms", "p99_latency_ms", "max_latency_ms", "reconnects", "last_error"}
+	toRow := func(r FeedHealthRow) []any {
+		return []any{
+			r.TS, r.Vendor, r.Feed, r.Messages, r.Bytes, r.GapsDetected, r.SequenceResets,
+			nullableInt32Ptr(r.P50LatencyMs), nullableInt32Ptr(r.P99LatencyMs), nullableInt32Ptr(r.MaxLatencyMs),
+			r.Reconnects, nullableString(r.LastError),
+		}
+	}
+	return NewTableWriter("market.feed_health", columns, toRow, pool, cfg, clk, metrics, logger)
+}
+
+// NewDataGapWriter builds a TableWriter for market.data_gap.
+func NewDataGapWriter(pool Pool, cfg BatchConfig, clk clock.Clock, metrics Metrics, logger *slog.Logger) *TableWriter[DataGap] {
+	columns := []string{"instrument_id", "feed", "gap_start", "gap_end", "expected_rows", "actual_rows"}
+	toRow := func(g DataGap) []any {
+		return []any{g.InstrumentID, g.Feed, g.GapStart, g.GapEnd, nullableInt32(g.ExpectedRows), nullableInt32(g.ActualRows)}
+	}
+	return NewTableWriter("market.data_gap", columns, toRow, pool, cfg, clk, metrics, logger)
+}
+
+func nullableInt32Ptr(p *int32) any {
+	if p == nil {
+		return nil
+	}
+	return *p
+}
+
+func nullableInt32(n int32) any {
+	if n == 0 {
+		return nil
+	}
+	return n
 }
 
 func levelsOrEmpty(lvls []model.BookLevel) []model.BookLevel {
